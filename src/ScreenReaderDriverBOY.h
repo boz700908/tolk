@@ -12,8 +12,15 @@
 #include <windows.h>
 #include "ScreenReaderDriver.h"
 
-//Reason: Reason for callback, 1=speaking completed, 2=Interrupted by new speaking, 3=Interrupted by stopped call
 typedef void (__stdcall*BoyCtrlSpeakCompleteFunc)(int reason);
+
+typedef enum
+{
+	e_bcerr_success = 0,
+	e_bcerr_fail = 1,
+	e_bcerr_arg = 2,
+	e_bcerr_unavailable = 3,
+} BoyCtrlError;
 
 class ScreenReaderDriverBOY : public ScreenReaderDriver {
 public:
@@ -29,11 +36,11 @@ public:
   bool Output(const wchar_t *str, bool interrupt);
 
 private:
-  typedef int (__stdcall *BoyCtrlInitialize)(const wchar_t* pathName);
+  typedef int (BoyCtrlError __stdcall *BoyCtrlInitializeu8)(const wchar_t* pathName);
   typedef void (__stdcall *BoyCtrlUninitialize)();
   typedef bool (__stdcall *BoyCtrlIsReaderRunning)();
-  typedef int (__stdcall *BoyCtrlSpeak)(const wchar_t* text, bool withSlave, bool append, bool allowBreak, BoyCtrlSpeakCompleteFunc onCompletion);
-  typedef int (__stdcall *BoyCtrlStopSpeaking)(bool withSlave);
+  typedef int (BoyCtrlError __stdcall *BoyCtrlSpeaku8)(const wchar_t* text, bool withSlave, bool append, bool allowBreak, BoyCtrlSpeakCompleteFunc onCompletion);
+  typedef int (BoyCtrlError __stdcall *BoyCtrlStopSpeaking)(bool withSlave);
 
 
 private:
