@@ -31,19 +31,19 @@ public:
   bool Output(const wchar_t *str, bool interrupt);
 
 private:
-  typedef int (__stdcall *BoyCtrlInitializeu8)(const wchar_t* pathName);
+  typedef int (__stdcall *BoyCtrlInitializeU8)(const wchar_t* pathName);
   typedef void (__stdcall *BoyCtrlUninitialize)();
   typedef bool (__stdcall *BoyCtrlIsReaderRunning)();
-  typedef int (__stdcall *BoyCtrlSpeaku8)(const wchar_t* text, bool withSlave, bool append, bool allowBreak, BoyCtrlSpeakCompleteFunc onCompletion);
+  typedef int (__stdcall *BoyCtrlSpeakU8)(const wchar_t* text, bool withSlave, bool append, bool allowBreak, BoyCtrlSpeakCompleteFunc onCompletion);
   typedef int (__stdcall *BoyCtrlStopSpeaking)(bool withSlave);
 
 
 private:
   HINSTANCE controller;
-  BoyCtrlInitializeu8 BoyInit;
+  BoyCtrlInitializeU8 BoyInit;
   BoyCtrlUninitialize BoyUninit;
   BoyCtrlIsReaderRunning BoyIsRunning;
-  BoyCtrlSpeaku8 BoySpeak;
+  BoyCtrlSpeakU8 BoySpeak;
   BoyCtrlStopSpeaking BoyStopSpeak;
 };
 
