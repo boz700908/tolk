@@ -12,7 +12,9 @@
 #include <windows.h>
 #include "ScreenReaderDriver.h"
 
+// Global variable to store the reason value
 //Reason: Reason for callback, 1=speaking completed, 2=Interrupted by new speaking, 3=Interrupted by stopped call
+
 typedef void (__stdcall*BoyCtrlSpeakCompleteFunc)(int reason);
 
 class ScreenReaderDriverBOY : public ScreenReaderDriver {
