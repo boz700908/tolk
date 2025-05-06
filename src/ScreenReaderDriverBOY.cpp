@@ -34,10 +34,10 @@ ScreenReaderDriverBOY::ScreenReaderDriverBOY() :
   BoyIsRunning(NULL)
 {
   if (controller) {
-    BoyInit = (BoyCtrlInitializeU8)GetProcAddress(controller, "BoyCtrlInitializeU8");
+    BoyInit = (BoyCtrlInitialize)GetProcAddress(controller, "BoyCtrlInitialize");
     BoyUninit = (BoyCtrlUninitialize)GetProcAddress(controller, "BoyCtrlUninitialize");
     BoyIsRunning = (BoyCtrlIsReaderRunning)GetProcAddress(controller, "BoyCtrlIsReaderRunning");
-    BoySpeak = (BoyCtrlSpeakU8)GetProcAddress(controller, "BoyCtrlSpeakU8");
+    BoySpeak = (BoyCtrlSpeak)GetProcAddress(controller, "BoyCtrlSpeak");
     BoyStopSpeak = (BoyCtrlStopSpeaking)GetProcAddress(controller, "BoyCtrlStopSpeaking");
 	BoyInit(NULL);
   }
