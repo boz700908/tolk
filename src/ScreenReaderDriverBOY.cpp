@@ -51,6 +51,7 @@ FreeLibrary(controller);
 }
 
 bool ScreenReaderDriverBOY::Speak(const wchar_t *str, bool interrupt) {
+    BoyCtrlSetAnyKeyStopSpeaking(true);
   g_speakCompleteReason = -1; // Reset the reason to indicate speaking has started
   if (BoySpeak) return (BoySpeak(str, false, !interrupt, true, SpeakCompleteCallback) == 0);
   return false;
