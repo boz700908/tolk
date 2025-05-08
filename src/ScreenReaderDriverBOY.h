@@ -34,7 +34,6 @@ private:
   typedef int (__stdcall *BoyCtrlInitialize)(const wchar_t* pathName);
   typedef void (__stdcall *BoyCtrlUninitialize)();
   typedef bool (__stdcall *BoyCtrlIsReaderRunning)();
-  typedef int (__stdcall *BoyCtrlSetAnyKeyStopSpeaking)(bool withSlave);
   typedef int (__stdcall *BoyCtrlSpeak)(const wchar_t* text, bool withSlave, bool append, bool allowBreak, BoyCtrlSpeakCompleteFunc onCompletion);
   typedef int (__stdcall *BoyCtrlStopSpeaking)(bool withSlave);
 
