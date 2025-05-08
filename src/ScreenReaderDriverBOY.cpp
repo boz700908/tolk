@@ -52,7 +52,7 @@ FreeLibrary(controller);
 
 bool ScreenReaderDriverBOY::Speak(const wchar_t *str, bool interrupt) {
   g_speakCompleteReason = -1; // Reset the reason to indicate speaking has started
-  if (BoySpeak) return (BoySpeak(str, true, !interrupt, true, SpeakCompleteCallback) == 0);
+  if (BoySpeak) return (BoySpeak(str, false, true, true, SpeakCompleteCallback) == 0);
   return false;
 }
 
@@ -62,7 +62,7 @@ bool ScreenReaderDriverBOY::Braille(const wchar_t *str) {
 
 bool ScreenReaderDriverBOY::Silence() {
   if (BoyStopSpeak) {
-    BoyStopSpeak(true);
+    BoyStopSpeak(false);
     g_speakCompleteReason = 3;
     return true;
   }
