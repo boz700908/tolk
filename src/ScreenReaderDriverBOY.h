@@ -36,6 +36,7 @@ private:
   typedef bool (__stdcall *BoyCtrlIsReaderRunning)();
   typedef int (__stdcall *BoyCtrlSpeak)(const wchar_t* text, bool withSlave, bool append, bool allowBreak, BoyCtrlSpeakCompleteFunc onCompletion);
   typedef int (__stdcall *BoyCtrlStopSpeaking)(bool withSlave);
+  typedef int (__stdcall *BoyCtrlSetAnyKeyStopSpeaking)(bool withSlave);
 
 private:
   HINSTANCE controller;
