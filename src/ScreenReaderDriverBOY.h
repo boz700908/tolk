@@ -29,6 +29,7 @@ public:
   bool Silence();
   bool IsActive();
   bool Output(const wchar_t *str, bool interrupt);
+  bool __stdcall BoyCtrlSetAnyKeyStopSpeaking(bool withSlave);
 
 private:
   typedef int (__stdcall *BoyCtrlInitialize)(const wchar_t* pathName);

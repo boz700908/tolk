@@ -40,6 +40,7 @@ ScreenReaderDriverBOY::ScreenReaderDriverBOY() :
     BoySpeak = (BoyCtrlSpeak)GetProcAddress(controller, "BoyCtrlSpeak");
     BoyStopSpeak = (BoyCtrlStopSpeaking)GetProcAddress(controller, "BoyCtrlStopSpeaking");
 	BoyInit(NULL);
+	BoyCtrlSetAnyKeyStopSpeaking(false)
   }
 }
 
