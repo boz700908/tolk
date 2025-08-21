@@ -1,7 +1,18 @@
+/**
+ *  Product:        Tolk
+ *  File:           ScreenReaderDriverBOY.cpp
+ *  Description:    Driver for the BOY screen reader.
+ *  Copyright:      (c) 2024, qt06<qt06.com@gmail.com>
+ *  License:        LGPLv3
+ */
+
 #include "ScreenReaderDriverBOY.h"
 #include <windows.h>
 
 typedef void(__stdcall *BoyCtrlSetAnyKeyStopSpeakingFunc)(bool);
+
+// Global variable to store the reason value
+//Reason: Reason for callback, 1=speaking completed, 2=Interrupted by new speaking, 3=Interrupted by stopped call
 
 static int g_speakCompleteReason = -1;
 
