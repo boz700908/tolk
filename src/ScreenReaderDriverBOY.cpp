@@ -12,8 +12,7 @@
 typedef void(__stdcall *BoyCtrlSetAnyKeyStopSpeakingFunc)(bool);
 
 // Global variable to store the reason value
-//Reason: Reason for callback, 1=speaking completed, 2=Interrupted by new speaking, 3=Interrupted by stopped call
-
+// Reason: 1 = speaking completed, 2 = interrupted by new speaking, 3 = interrupted by stopped call
 static int g_speakCompleteReason = -1;
 
 void __stdcall SpeakCompleteCallback(int reason)
@@ -93,16 +92,15 @@ bool ScreenReaderDriverBOY::Silence()
 
 bool ScreenReaderDriverBOY::IsSpeaking()
 {
-        g_speakCompleteReason ==-1 ;
-        return true;
-    }
-    return false;
+    return (g_speakCompleteReason == -1);
 }
 
 bool ScreenReaderDriverBOY::IsActive()
 {
-  if (  BoyIsRunning) return (BoyIsRunning() = 2);
-  return false;
+    if (BoyIsRunning) {
+        return (BoyIsRunning() == 2);
+    }
+    return false;
 }
 
 bool ScreenReaderDriverBOY::Output(const wchar_t* str, bool interrupt)
