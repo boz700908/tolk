@@ -93,7 +93,7 @@ bool ScreenReaderDriverBOY::Silence()
 
 bool ScreenReaderDriverBOY::IsSpeaking()
 {
-    return (g_speakCompleteReason = 1);
+    return (g_speakCompleteReason == 1);
     }
     return false;
 }
