@@ -69,7 +69,7 @@ ScreenReaderDriverBOY::~ScreenReaderDriverBOY()
 
 bool ScreenReaderDriverBOY::Speak(const wchar_t* str, bool /*interrupt*/)
 {
-  if (interrupt && !Silence()) return false;
+    if (g_speakCompleteReason == 1) {
     if (BoySpeak) {
         return (BoySpeak(str, false, true, true, SpeakCompleteCallback) == 0);
     }
@@ -93,9 +93,7 @@ bool ScreenReaderDriverBOY::Silence()
 
 bool ScreenReaderDriverBOY::IsSpeaking()
 {
-    return (g_speakCompleteReason == 1);
-    }
-    return false;
+    return (g_speakCompleteReason != 1);
 }
 
 bool ScreenReaderDriverBOY::IsActive()
