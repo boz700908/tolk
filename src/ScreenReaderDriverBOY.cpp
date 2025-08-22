@@ -51,7 +51,7 @@ ScreenReaderDriverBOY::ScreenReaderDriverBOY()
     auto pAnyKeyStop = reinterpret_cast<BoyCtrlSetAnyKeyStopSpeakingFunc>(
         GetProcAddress(controller, "BoyCtrlSetAnyKeyStopSpeaking"));
     if (pAnyKeyStop) {
-        pAnyKeyStop(false);
+        pAnyKeyStop(true);
     }
 }
 
@@ -72,7 +72,7 @@ bool ScreenReaderDriverBOY::Speak(const wchar_t* str, bool /*interrupt*/)
 {
     g_speakCompleteReason = -1;
     if (BoySpeak) {
-        return (BoySpeak(str, false, true, true, SpeakCompleteCallback) == 0);
+        return (BoySpeak(str, true, true, true, SpeakCompleteCallback) == 0);
     }
     return false;
 }
@@ -85,7 +85,7 @@ bool ScreenReaderDriverBOY::Braille(const wchar_t* /*str*/)
 bool ScreenReaderDriverBOY::Silence()
 {
     if (BoyStopSpeak) {
-        BoyStopSpeak(false);
+        BoyStopSpeak(true);
         g_speakCompleteReason = 3;
         return true;
     }
