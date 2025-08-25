@@ -8,13 +8,37 @@
 
 #include "ScreenReaderDriverBOY.h"
 #include <windows.h>
+#include <string>
 
 typedef void(__stdcall *BoyCtrlSetAnyKeyStopSpeakingFunc)(bool);
 
-// Global variable to store the reason value
-//Reason: Reason for callback, 1=speaking completed, 2=Interrupted by new speaking, 3=Interrupted by stopped call
-
+// Reason: 1=speaking completed, 2=Interrupted by new speaking, 3=Interrupted by stopped call
 static int g_speakCompleteReason = -1;
+
+static bool g_speakParam1 = true;
+static bool g_speakParam2 = true;
+static bool g_speakParam3 = true;
+static bool g_stopSpeakValue = true;
+static bool g_enableAnyKeyStopFunc = true;
+
+static void LoadBoyCtrlConfig()
+{
+    wchar_t path[MAX_PATH];
+    GetModuleFileNameW(nullptr, path, MAX_PATH);
+    std::wstring dir(path);
+    size_t pos = dir.find_last_of(L"\\/");
+    if (pos != std::wstring::npos) {
+        dir = dir.substr(0, pos + 1);
+    }
+    std::wstring iniPath = dir + L"boyctrl.ini";
+
+    g_speakParam1 = GetPrivateProfileIntW(L"Config", L"Param1", 1, iniPath.c_str()) != 0;
+    g_speakParam2 = GetPrivateProfileIntW(L"Config", L"Param2", 1, iniPath.c_str()) != 0;
+    g_speakParam3 = GetPrivateProfileIntW(L"Config", L"Param3", 1, iniPath.c_str()) != 0;
+
+    g_stopSpeakValue = g_speakParam1;
+    g_enableAnyKeyStopFunc = GetPrivateProfileIntW(L"Config", L"Param4", 1, iniPath.c_str()) != 0;
+}
 
 void __stdcall SpeakCompleteCallback(int reason)
 {
@@ -38,6 +62,8 @@ ScreenReaderDriverBOY::ScreenReaderDriverBOY()
         return;
     }
 
+    LoadBoyCtrlConfig();
+
     BoyInit      = reinterpret_cast<BoyCtrlInitialize>(   GetProcAddress(controller, "BoyCtrlInitialize"));
     BoyUninit    = reinterpret_cast<BoyCtrlUninitialize>( GetProcAddress(controller, "BoyCtrlUninitialize"));
     BoyIsRunning = reinterpret_cast<BoyCtrlIsReaderRunning>(GetProcAddress(controller, "BoyCtrlIsReaderRunning"));
@@ -50,8 +76,9 @@ ScreenReaderDriverBOY::ScreenReaderDriverBOY()
 
     auto pAnyKeyStop = reinterpret_cast<BoyCtrlSetAnyKeyStopSpeakingFunc>(
         GetProcAddress(controller, "BoyCtrlSetAnyKeyStopSpeaking"));
-    if (pAnyKeyStop) {
-        pAnyKeyStop(true);
+
+    if (pAnyKeyStop && g_enableAnyKeyStopFunc) {
+        pAnyKeyStop(g_stopSpeakValue);
     }
 }
 
@@ -72,7 +99,7 @@ bool ScreenReaderDriverBOY::Speak(const wchar_t* str, bool /*interrupt*/)
 {
     g_speakCompleteReason = -1;
     if (BoySpeak) {
-        return (BoySpeak(str, true, true, true, SpeakCompleteCallback) == 0);
+        return (BoySpeak(str, g_speakParam1, g_speakParam2, g_speakParam3, SpeakCompleteCallback) == 0);
     }
     return false;
 }
@@ -85,7 +112,7 @@ bool ScreenReaderDriverBOY::Braille(const wchar_t* /*str*/)
 bool ScreenReaderDriverBOY::Silence()
 {
     if (BoyStopSpeak) {
-        BoyStopSpeak(true);
+        BoyStopSpeak(g_stopSpeakValue);
         g_speakCompleteReason = 3;
         return true;
     }
