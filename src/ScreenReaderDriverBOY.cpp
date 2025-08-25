@@ -9,10 +9,10 @@
 #include "ScreenReaderDriverBOY.h"
 #include <windows.h>
 #include <string>
+#include <algorithm>
 
 typedef void(__stdcall *BoyCtrlSetAnyKeyStopSpeakingFunc)(bool);
 
-// Reason: 1=speaking completed, 2=Interrupted by new speaking, 3=Interrupted by stopped call
 static int g_speakCompleteReason = -1;
 
 static bool g_speakParam1 = true;
@@ -20,6 +20,15 @@ static bool g_speakParam2 = true;
 static bool g_speakParam3 = true;
 static bool g_stopSpeakValue = true;
 static bool g_enableAnyKeyStopFunc = true;
+
+static bool ReadBoolFromIni(const wchar_t* section, const wchar_t* key, bool defaultValue, const std::wstring& iniPath)
+{
+    wchar_t buf[16] = {0};
+    GetPrivateProfileStringW(section, key, defaultValue ? L"true" : L"false", buf, 16, iniPath.c_str());
+    std::wstring val(buf);
+    std::transform(val.begin(), val.end(), val.begin(), ::towlower);
+    return (val == L"true");
+}
 
 static void LoadBoyCtrlConfig()
 {
@@ -32,12 +41,12 @@ static void LoadBoyCtrlConfig()
     }
     std::wstring iniPath = dir + L"boyctrl.ini";
 
-    g_speakParam1 = GetPrivateProfileIntW(L"Config", L"Param1", 1, iniPath.c_str()) != 0;
-    g_speakParam2 = GetPrivateProfileIntW(L"Config", L"Param2", 1, iniPath.c_str()) != 0;
-    g_speakParam3 = GetPrivateProfileIntW(L"Config", L"Param3", 1, iniPath.c_str()) != 0;
+    g_speakParam1 = ReadBoolFromIni(L"Config", L"Param1", true, iniPath);
+    g_speakParam2 = ReadBoolFromIni(L"Config", L"Param2", true, iniPath);
+    g_speakParam3 = ReadBoolFromIni(L"Config", L"Param3", true, iniPath);
 
     g_stopSpeakValue = g_speakParam1;
-    g_enableAnyKeyStopFunc = GetPrivateProfileIntW(L"Config", L"Param4", 1, iniPath.c_str()) != 0;
+    g_enableAnyKeyStopFunc = ReadBoolFromIni(L"Config", L"Param4", true, iniPath);
 }
 
 void __stdcall SpeakCompleteCallback(int reason)
