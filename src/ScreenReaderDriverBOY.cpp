@@ -16,12 +16,12 @@ typedef void(__stdcall *BoyCtrlSetAnyKeyStopSpeakingFunc)(bool);
 
 static int g_speakCompleteReason = -1;
 
-static bool g_speakParam1;
-static bool g_speakParam2;
-static bool g_speakParam3;
-static bool g_stopSpeakValue;
-static bool g_enableAnyKeyStopFunc;
-static bool g_configReady;
+static bool g_speakParam1 = false;
+static bool g_speakParam2 = false;
+static bool g_speakParam3 = false;
+static bool g_stopSpeakValue = false;
+static bool g_enableAnyKeyStopFunc = false;
+static bool g_configReady = false;
 
 static bool ReadBoolFromIniStrict(const wchar_t* section, const wchar_t* key, bool& outValue, const std::wstring& iniPath)
 {
