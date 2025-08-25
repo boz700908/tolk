@@ -2,7 +2,6 @@
  *  Product:        Tolk
  *  File:           ScreenReaderDriverBOY.cpp
  *  Description:    Driver for the BOY screen reader.
- *  Copyright:      (c) 2024, qt06<qt06.com@gmail.com>
  *  License:        LGPLv3
  */
 
@@ -15,11 +14,11 @@ typedef void(__stdcall *BoyCtrlSetAnyKeyStopSpeakingFunc)(bool);
 
 static int g_speakCompleteReason = -1;
 
-static bool g_speakParam1 = true;
-static bool g_speakParam2 = true;
-static bool g_speakParam3 = true;
+static bool g_speakParam1 = true; // 原 Param1 -> 顺延后第2个参数
+static bool g_speakParam2 = true; // 原 Param2 -> 顺延后第3个参数
+static bool g_speakParam3 = true; // 原 Param3 -> 顺延后第4个参数
 static bool g_stopSpeakValue = true;
-static bool g_enableAnyKeyStopFunc = true;
+static bool g_enableAnyKeyStopFunc = true; // Param4
 
 static bool ReadBoolFromIni(const wchar_t* section, const wchar_t* key, bool defaultValue, const std::wstring& iniPath)
 {
@@ -86,7 +85,7 @@ ScreenReaderDriverBOY::ScreenReaderDriverBOY()
     auto pAnyKeyStop = reinterpret_cast<BoyCtrlSetAnyKeyStopSpeakingFunc>(
         GetProcAddress(controller, "BoyCtrlSetAnyKeyStopSpeaking"));
 
-    if (pAnyKeyStop && g_enableAnyKeyStopFunc) {
+    if (g_enableAnyKeyStopFunc && pAnyKeyStop) {
         pAnyKeyStop(g_stopSpeakValue);
     }
 }
@@ -108,6 +107,7 @@ bool ScreenReaderDriverBOY::Speak(const wchar_t* str, bool /*interrupt*/)
 {
     g_speakCompleteReason = -1;
     if (BoySpeak) {
+        // 去掉原第一个参数，直接从 str 作为第一个参数开始
         return (BoySpeak(str, g_speakParam1, g_speakParam2, g_speakParam3, SpeakCompleteCallback) == 0);
     }
     return false;
