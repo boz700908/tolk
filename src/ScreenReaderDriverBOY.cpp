@@ -1,7 +1,8 @@
 /**
  *  Product:        Tolk
- *  File:           ScreenReaderDriverBOY.cpp
+ *  File:           ScreenReaderDriverBOY.h
  *  Description:    Driver for the BOY screen reader.
+ *  Copyright:      (c) 2024, qt06<qt06.com@gmail.com>
  *  License:        LGPLv3
  */
 
@@ -9,29 +10,37 @@
 #include <windows.h>
 #include <string>
 #include <algorithm>
+#include <cwctype>
 
 typedef void(__stdcall *BoyCtrlSetAnyKeyStopSpeakingFunc)(bool);
 
 static int g_speakCompleteReason = -1;
 
-static bool g_speakParam1 = true; // 原 Param1 -> 顺延后第2个参数
-static bool g_speakParam2 = true; // 原 Param2 -> 顺延后第3个参数
-static bool g_speakParam3 = true; // 原 Param3 -> 顺延后第4个参数
-static bool g_stopSpeakValue = true;
-static bool g_enableAnyKeyStopFunc = true; // Param4
+static bool g_speakParam1;
+static bool g_speakParam2;
+static bool g_speakParam3;
+static bool g_stopSpeakValue;
+static bool g_enableAnyKeyStopFunc;
+static bool g_configReady;
 
-static bool ReadBoolFromIni(const wchar_t* section, const wchar_t* key, bool defaultValue, const std::wstring& iniPath)
+static bool ReadBoolFromIniStrict(const wchar_t* section, const wchar_t* key, bool& outValue, const std::wstring& iniPath)
 {
     wchar_t buf[16] = {0};
-    GetPrivateProfileStringW(section, key, defaultValue ? L"true" : L"false", buf, 16, iniPath.c_str());
+    GetPrivateProfileStringW(section, key, L"", buf, 16, iniPath.c_str());
     std::wstring val(buf);
+    val.erase(std::remove_if(val.begin(), val.end(), [](wchar_t ch){ return std::iswspace(ch) != 0; }), val.end());
     std::transform(val.begin(), val.end(), val.begin(), ::towlower);
-    return (val == L"true");
+
+    if (val == L"true")  { outValue = true;  return true; }
+    if (val == L"false") { outValue = false; return true; }
+    return false;
 }
 
 static void LoadBoyCtrlConfig()
 {
-    wchar_t path[MAX_PATH];
+    g_configReady = false;
+
+    wchar_t path[MAX_PATH] = {0};
     GetModuleFileNameW(nullptr, path, MAX_PATH);
     std::wstring dir(path);
     size_t pos = dir.find_last_of(L"\\/");
@@ -40,12 +49,15 @@ static void LoadBoyCtrlConfig()
     }
     std::wstring iniPath = dir + L"boyctrl.ini";
 
-    g_speakParam1 = ReadBoolFromIni(L"Config", L"Param1", true, iniPath);
-    g_speakParam2 = ReadBoolFromIni(L"Config", L"Param2", true, iniPath);
-    g_speakParam3 = ReadBoolFromIni(L"Config", L"Param3", true, iniPath);
+    bool ok1 = ReadBoolFromIniStrict(L"Config", L"Param1", g_speakParam1, iniPath);
+    bool ok2 = ReadBoolFromIniStrict(L"Config", L"Param2", g_speakParam2, iniPath);
+    bool ok3 = ReadBoolFromIniStrict(L"Config", L"Param3", g_speakParam3, iniPath);
+    bool ok4 = ReadBoolFromIniStrict(L"Config", L"Param4", g_enableAnyKeyStopFunc, iniPath);
 
-    g_stopSpeakValue = g_speakParam1;
-    g_enableAnyKeyStopFunc = ReadBoolFromIni(L"Config", L"Param4", true, iniPath);
+    if (ok1 && ok2 && ok3 && ok4) {
+        g_stopSpeakValue = g_speakParam1;
+        g_configReady = true;
+    }
 }
 
 void __stdcall SpeakCompleteCallback(int reason)
@@ -85,7 +97,7 @@ ScreenReaderDriverBOY::ScreenReaderDriverBOY()
     auto pAnyKeyStop = reinterpret_cast<BoyCtrlSetAnyKeyStopSpeakingFunc>(
         GetProcAddress(controller, "BoyCtrlSetAnyKeyStopSpeaking"));
 
-    if (g_enableAnyKeyStopFunc && pAnyKeyStop) {
+    if (g_configReady && g_enableAnyKeyStopFunc && pAnyKeyStop) {
         pAnyKeyStop(g_stopSpeakValue);
     }
 }
@@ -106,8 +118,7 @@ ScreenReaderDriverBOY::~ScreenReaderDriverBOY()
 bool ScreenReaderDriverBOY::Speak(const wchar_t* str, bool /*interrupt*/)
 {
     g_speakCompleteReason = -1;
-    if (BoySpeak) {
-        // 去掉原第一个参数，直接从 str 作为第一个参数开始
+    if (BoySpeak && g_configReady) {
         return (BoySpeak(str, g_speakParam1, g_speakParam2, g_speakParam3, SpeakCompleteCallback) == 0);
     }
     return false;
@@ -120,7 +131,7 @@ bool ScreenReaderDriverBOY::Braille(const wchar_t* /*str*/)
 
 bool ScreenReaderDriverBOY::Silence()
 {
-    if (BoyStopSpeak) {
+    if (BoyStopSpeak && g_configReady) {
         BoyStopSpeak(g_stopSpeakValue);
         g_speakCompleteReason = 3;
         return true;
