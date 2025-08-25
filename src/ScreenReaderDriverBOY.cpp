@@ -21,7 +21,6 @@ static bool g_speakParam2 = false;
 static bool g_speakParam3 = false;
 static bool g_stopSpeakValue = false;
 static bool g_enableAnyKeyStopFunc = false;
-static bool g_configReady = false;
 
 static bool ReadBoolFromIniStrict(const wchar_t* section, const wchar_t* key, bool& outValue, const std::wstring& iniPath)
 {
@@ -38,8 +37,6 @@ static bool ReadBoolFromIniStrict(const wchar_t* section, const wchar_t* key, bo
 
 static void LoadBoyCtrlConfig()
 {
-    g_configReady = false;
-
     wchar_t path[MAX_PATH] = {0};
     GetModuleFileNameW(nullptr, path, MAX_PATH);
     std::wstring dir(path);
@@ -49,15 +46,12 @@ static void LoadBoyCtrlConfig()
     }
     std::wstring iniPath = dir + L"boyctrl.ini";
 
-    bool ok1 = ReadBoolFromIniStrict(L"Config", L"Param1", g_speakParam1, iniPath);
-    bool ok2 = ReadBoolFromIniStrict(L"Config", L"Param2", g_speakParam2, iniPath);
-    bool ok3 = ReadBoolFromIniStrict(L"Config", L"Param3", g_speakParam3, iniPath);
-    bool ok4 = ReadBoolFromIniStrict(L"Config", L"Param4", g_enableAnyKeyStopFunc, iniPath);
+    ReadBoolFromIniStrict(L"Config", L"Param1", g_speakParam1, iniPath);
+    ReadBoolFromIniStrict(L"Config", L"Param2", g_speakParam2, iniPath);
+    ReadBoolFromIniStrict(L"Config", L"Param3", g_speakParam3, iniPath);
+    ReadBoolFromIniStrict(L"Config", L"Param4", g_enableAnyKeyStopFunc, iniPath);
 
-    if (ok1 && ok2 && ok3 && ok4) {
-        g_stopSpeakValue = g_speakParam1;
-        g_configReady = true;
-    }
+    g_stopSpeakValue = g_speakParam1;
 }
 
 void __stdcall SpeakCompleteCallback(int reason)
@@ -97,7 +91,7 @@ ScreenReaderDriverBOY::ScreenReaderDriverBOY()
     auto pAnyKeyStop = reinterpret_cast<BoyCtrlSetAnyKeyStopSpeakingFunc>(
         GetProcAddress(controller, "BoyCtrlSetAnyKeyStopSpeaking"));
 
-    if (g_configReady && g_enableAnyKeyStopFunc && pAnyKeyStop) {
+    if (g_enableAnyKeyStopFunc && pAnyKeyStop) {
         pAnyKeyStop(g_stopSpeakValue);
     }
 }
@@ -118,7 +112,7 @@ ScreenReaderDriverBOY::~ScreenReaderDriverBOY()
 bool ScreenReaderDriverBOY::Speak(const wchar_t* str, bool /*interrupt*/)
 {
     g_speakCompleteReason = -1;
-    if (BoySpeak && g_configReady) {
+    if (BoySpeak) {
         return (BoySpeak(str, g_speakParam1, g_speakParam2, g_speakParam3, SpeakCompleteCallback) == 0);
     }
     return false;
@@ -131,7 +125,7 @@ bool ScreenReaderDriverBOY::Braille(const wchar_t* /*str*/)
 
 bool ScreenReaderDriverBOY::Silence()
 {
-    if (BoyStopSpeak && g_configReady) {
+    if (BoyStopSpeak) {
         BoyStopSpeak(g_stopSpeakValue);
         g_speakCompleteReason = 3;
         return true;
