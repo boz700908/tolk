@@ -14,6 +14,8 @@
 
 typedef void(__stdcall *BoyCtrlSetAnyKeyStopSpeakingFunc)(bool);
 
+extern "C" IMAGE_DOS_HEADER __ImageBase;
+
 static int g_speakCompleteReason = -1;
 
 static bool g_speakParam1 = false;
@@ -34,10 +36,10 @@ static void ReadBoolFromIniStrict(const wchar_t* section, const wchar_t* key, bo
     outValue = false;
 }
 
-static void LoadBoyCtrlConfig(HMODULE hCaller)
+static void LoadBoyCtrlConfig()
 {
     wchar_t modulePath[MAX_PATH] = {0};
-    GetModuleFileNameW(hCaller, modulePath, MAX_PATH);
+    GetModuleFileNameW((HINSTANCE)&__ImageBase, modulePath, MAX_PATH);
     std::wstring dir(modulePath);
     size_t pos = dir.find_last_of(L"\\/");
     if (pos != std::wstring::npos) {
@@ -73,7 +75,7 @@ ScreenReaderDriverBOY::ScreenReaderDriverBOY()
         return;
     }
 
-    LoadBoyCtrlConfig(GetModuleHandleW(nullptr));
+    LoadBoyCtrlConfig();
 
     BoyInit      = reinterpret_cast<BoyCtrlInitialize>(   GetProcAddress(controller, "BoyCtrlInitialize"));
     BoyUninit    = reinterpret_cast<BoyCtrlUninitialize>( GetProcAddress(controller, "BoyCtrlUninitialize"));
