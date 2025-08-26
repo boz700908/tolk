@@ -11,6 +11,7 @@
 #include <string>
 #include <algorithm>
 #include <cwctype>
+#include <fstream>
 
 typedef void(__stdcall *BoyCtrlSetAnyKeyStopSpeakingFunc)(bool);
 
@@ -24,16 +25,22 @@ static bool g_speakParam3 = false;
 static bool g_stopSpeakValue = false;
 static bool g_enableAnyKeyStopFunc = false;
 
-static void ReadBoolFromIniStrict(const wchar_t* section, const wchar_t* key, bool& outValue, const std::wstring& iniPath)
+static bool ReadBoolFromIniStrict(const wchar_t* section, const wchar_t* key, bool& outValue, const std::wstring& iniPath)
 {
     wchar_t buf[16] = {0};
     GetPrivateProfileStringW(section, key, L"", buf, 16, iniPath.c_str());
     std::wstring val(buf);
     val.erase(std::remove_if(val.begin(), val.end(), [](wchar_t ch){ return std::iswspace(ch) != 0; }), val.end());
     std::transform(val.begin(), val.end(), val.begin(), ::towlower);
-    if (val == L"true" || val == L"1")  { outValue = true;  return; }
-    if (val == L"false" || val == L"0") { outValue = false; return; }
-    outValue = false;
+    if (val == L"true" || val == L"1")  { outValue = true;  return true; }
+    if (val == L"false" || val == L"0") { outValue = false; return true; }
+    return false;
+}
+
+static bool FileExists(const std::wstring& path)
+{
+    std::ifstream f(path.c_str());
+    return f.good();
 }
 
 static void LoadBoyCtrlConfig()
@@ -46,6 +53,13 @@ static void LoadBoyCtrlConfig()
         dir = dir.substr(0, pos + 1);
     }
     std::wstring iniPath = dir + L"boyctrl.ini";
+
+    if (!FileExists(iniPath)) {
+        wchar_t cwd[MAX_PATH] = {0};
+        GetCurrentDirectoryW(MAX_PATH, cwd);
+        iniPath = std::wstring(cwd) + L"\\boyctrl.ini";
+    }
+
     ReadBoolFromIniStrict(L"Config", L"Param1", g_speakParam1, iniPath);
     ReadBoolFromIniStrict(L"Config", L"Param2", g_speakParam2, iniPath);
     ReadBoolFromIniStrict(L"Config", L"Param3", g_speakParam3, iniPath);
