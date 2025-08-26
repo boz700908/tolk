@@ -11,8 +11,11 @@
 #include <string>
 #include <algorithm>
 #include <cwctype>
+#include <fstream>
 
 typedef void(__stdcall *BoyCtrlSetAnyKeyStopSpeakingFunc)(bool);
+
+extern "C" IMAGE_DOS_HEADER __ImageBase;
 
 static int g_speakCompleteReason = -1;
 
@@ -29,28 +32,38 @@ static bool ReadBoolFromIniStrict(const wchar_t* section, const wchar_t* key, bo
     std::wstring val(buf);
     val.erase(std::remove_if(val.begin(), val.end(), [](wchar_t ch){ return std::iswspace(ch) != 0; }), val.end());
     std::transform(val.begin(), val.end(), val.begin(), ::towlower);
-
-    if (val == L"true")  { outValue = true;  return true; }
-    if (val == L"false") { outValue = false; return true; }
+    if (val == L"true" || val == L"1")  { outValue = true;  return true; }
+    if (val == L"false" || val == L"0") { outValue = false; return true; }
     return false;
+}
+
+static bool FileExists(const std::wstring& path)
+{
+    std::ifstream f(path.c_str());
+    return f.good();
 }
 
 static void LoadBoyCtrlConfig()
 {
-    wchar_t path[MAX_PATH] = {0};
-    GetModuleFileNameW(nullptr, path, MAX_PATH);
-    std::wstring dir(path);
+    wchar_t modulePath[MAX_PATH] = {0};
+    GetModuleFileNameW((HINSTANCE)&__ImageBase, modulePath, MAX_PATH);
+    std::wstring dir(modulePath);
     size_t pos = dir.find_last_of(L"\\/");
     if (pos != std::wstring::npos) {
         dir = dir.substr(0, pos + 1);
     }
     std::wstring iniPath = dir + L"boyctrl.ini";
 
+    if (!FileExists(iniPath)) {
+        wchar_t cwd[MAX_PATH] = {0};
+        GetCurrentDirectoryW(MAX_PATH, cwd);
+        iniPath = std::wstring(cwd) + L"\\boyctrl.ini";
+    }
+
     ReadBoolFromIniStrict(L"Config", L"Param1", g_speakParam1, iniPath);
     ReadBoolFromIniStrict(L"Config", L"Param2", g_speakParam2, iniPath);
     ReadBoolFromIniStrict(L"Config", L"Param3", g_speakParam3, iniPath);
     ReadBoolFromIniStrict(L"Config", L"Param4", g_enableAnyKeyStopFunc, iniPath);
-
     g_stopSpeakValue = g_speakParam1;
 }
 
