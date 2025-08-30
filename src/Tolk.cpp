@@ -35,7 +35,6 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Load() {
   if (Tolk_IsLoaded()) return;
   g_screenReaderDrivers.push_back(new ScreenReaderDriverZDSR());
   g_screenReaderDrivers.push_back(new ScreenReaderDriverBOY());
-  g_screenReaderDrivers.push_back(new ScreenReaderDriverNVDA());
   g_screenReaderDrivers.push_back(new ScreenReaderDriverJAWS());
   g_screenReaderDrivers.push_back(new ScreenReaderDriverWE());
 #ifndef _WIN64
