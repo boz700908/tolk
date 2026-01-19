@@ -42,7 +42,7 @@ FreeLibrary(controller);
 }
 
 bool ScreenReaderDriverBOY::Speak(const wchar_t *str, bool interrupt) {
-  if (BoySpeak) return (BoySpeak(str) == 0);
+  if (BoySpeak) return BoySpeak(str);
   return false;
 }
 
@@ -51,7 +51,7 @@ bool ScreenReaderDriverBOY::Braille(const wchar_t *str) {
 }
 
 bool ScreenReaderDriverBOY::Silence() {
-      if (BoyStopSpeak) return (BoyStopSpeak() == 0);
+      if (BoyStopSpeak) return BoyStopSpeak();
       return false;
   }
 
