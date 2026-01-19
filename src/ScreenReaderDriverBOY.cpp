@@ -51,9 +51,8 @@ bool ScreenReaderDriverBOY::Braille(const wchar_t *str) {
 }
 
 bool ScreenReaderDriverBOY::Silence() {
-  if (BoyStopSpeak) {
-    BoyStopSpeak();
-    return true;
+      if (BoyStopSpeak) return (BoyStopSpeak() == 0);
+      return false;
   }
 
 bool ScreenReaderDriverBOY::IsActive() {
