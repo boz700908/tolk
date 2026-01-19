@@ -27,7 +27,7 @@ ScreenReaderDriverBOY::ScreenReaderDriverBOY() :
   if (controller) {
     BoyInit = (BoyCtrlInitialize)GetProcAddress(controller, "BoyCtrlInitialize");
     BoyUninit = (BoyCtrlUninitialize)GetProcAddress(controller, "BoyCtrlUninitialize");
-    BoyIsRunning = (BoyCtrlIsReaderRunning)GetProcAddress(controller, "BoyCtrlIsReaderRunning");
+    BoyIsRunning = (BoyCtrlGetReaderState)GetProcAddress(controller, "BoyCtrlGetReaderState");
     BoySpeak = (BoyCtrlSpeak2)GetProcAddress(controller, "BoyCtrlSpeak2");
     BoyStopSpeak = (BoyCtrlStopSpeaking2)GetProcAddress(controller, "BoyCtrlStopSpeaking2");
         BoyInit(NULL);
@@ -42,7 +42,7 @@ FreeLibrary(controller);
 }
 
 bool ScreenReaderDriverBOY::Speak(const wchar_t *str, bool interrupt) {
-  if (BoySpeak) return BoySpeak(str);
+  if (BoySpeak) return (BoySpeak(str) == 0);
   return false;
 }
 
@@ -51,12 +51,15 @@ bool ScreenReaderDriverBOY::Braille(const wchar_t *str) {
 }
 
 bool ScreenReaderDriverBOY::Silence() {
-      if (BoyStopSpeak) return BoyStopSpeak();
-      return false;
+  if (BoyStopSpeak) {
+    BoyStopSpeak();
+   return true;
+  }
+  return false;  
   }
 
 bool ScreenReaderDriverBOY::IsActive() {
-  if (BoyIsRunning) return BoyIsRunning();
+  if (BoyIsRunning) return (BoyIsRunning() >= 0);
   return false;
 }
 

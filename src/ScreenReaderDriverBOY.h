@@ -21,7 +21,6 @@ public:
   bool Speak(const wchar_t *str, bool interrupt);
   bool Braille(const wchar_t *str);
     bool IsSpeaking() { return false; }
-
   bool Silence();
   bool IsActive();
   bool Output(const wchar_t *str, bool interrupt);
@@ -29,7 +28,7 @@ public:
 private:
   typedef int (__stdcall *BoyCtrlInitialize)(const wchar_t* pathName);
   typedef void (__stdcall *BoyCtrlUninitialize)();
-  typedef bool (__stdcall *BoyCtrlIsReaderRunning)();
+  typedef bool (__stdcall *BoyCtrlGetReaderState)();
   typedef int (__stdcall *BoyCtrlSpeak2)(const wchar_t* text);
   typedef int (__stdcall *BoyCtrlStopSpeaking2)();
 
@@ -38,7 +37,7 @@ private:
   HINSTANCE controller;
   BoyCtrlInitialize BoyInit;
   BoyCtrlUninitialize BoyUninit;
-  BoyCtrlIsReaderRunning BoyIsRunning;
+  BoyCtrlGetReaderState BoyIsRunning;
   BoyCtrlSpeak2 BoySpeak;
   BoyCtrlStopSpeaking2 BoyStopSpeak;
 };
