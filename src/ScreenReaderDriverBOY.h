@@ -28,7 +28,7 @@ public:
 private:
   typedef int (__stdcall *BoyCtrlInitialize)(const wchar_t* pathName);
   typedef void (__stdcall *BoyCtrlUninitialize)();
-  typedef bool (__stdcall *BoyCtrlGetReaderState)();
+  typedef int (__stdcall *BoyCtrlGetReaderState)();
   typedef int (__stdcall *BoyCtrlSpeak2)(const wchar_t* text);
   typedef int (__stdcall *BoyCtrlStopSpeaking2)();
 
