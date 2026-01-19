@@ -33,7 +33,7 @@ private:
   typedef void (__stdcall *BoyCtrlUninitialize)();
   typedef bool (__stdcall *BoyCtrlIsReaderRunning)();
   typedef int (__stdcall *BoyCtrlSpeak2)(const wchar_t* text);
-  __stdcall *BoyCtrlStopSpeaking2();
+  typedef int (__stdcall *BoyCtrlStopSpeaking2)();
 
 
 private:
