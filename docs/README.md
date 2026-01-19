@@ -83,7 +83,7 @@ The following table lists the supported screen readers in the order in which the
 
     Screen Reader   Speech   Braille   Status   x86   x64
     ZDSR            Yes      NO       YES       Yes   Yes
-    BoyPCReader            Yes      NO       YES       Yes   Yes
+    BoyPCReader            Yes      NO       NO       Yes   Yes
     JAWS            Yes      Yes       No       Yes   Yes
     NVDA            Yes      Yes       No       Yes   Yes
     Window-Eyes     Yes      Yes       No       Yes   Yes

@@ -12,9 +12,6 @@
 #include <windows.h>
 #include "ScreenReaderDriver.h"
 
-//Reason: Reason for callback, 1=speaking completed, 2=Interrupted by new speaking, 3=Interrupted by stopped call
-typedef void (__stdcall*BoyCtrlSpeakCompleteFunc)(int reason);
-
 class ScreenReaderDriverBOY : public ScreenReaderDriver {
 public:
   ScreenReaderDriverBOY();
@@ -23,7 +20,8 @@ public:
 public:
   bool Speak(const wchar_t *str, bool interrupt);
   bool Braille(const wchar_t *str);
-  bool IsSpeaking();
+    bool IsSpeaking() { return false; }
+
   bool Silence();
   bool IsActive();
   bool Output(const wchar_t *str, bool interrupt);

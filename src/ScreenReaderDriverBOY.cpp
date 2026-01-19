@@ -11,15 +11,6 @@
 
 #include "ScreenReaderDriverBOY.h"
 
-// Global variable to store the reason value
-//Reason: Reason for callback, 1=speaking completed, 2=Interrupted by new speaking, 3=Interrupted by stopped call
-static int g_speakCompleteReason = -1; // -1 indicates no speech activity
-
-// Callback function to be called when speaking is complete
-void __stdcall SpeakCompleteCallback(int reason) {
-  g_speakCompleteReason = reason;
-}
-
 ScreenReaderDriverBOY::ScreenReaderDriverBOY() :
   ScreenReaderDriver(L"BoyPCReader", true, false),
   #ifdef _WIN64
@@ -51,7 +42,6 @@ FreeLibrary(controller);
 }
 
 bool ScreenReaderDriverBOY::Speak(const wchar_t *str, bool interrupt) {
-  g_speakCompleteReason = -1; // Reset the reason to indicate speaking has started
   if (BoySpeak) return (BoySpeak(str) == 0);
   return false;
 }
@@ -63,15 +53,8 @@ bool ScreenReaderDriverBOY::Braille(const wchar_t *str) {
 bool ScreenReaderDriverBOY::Silence() {
   if (BoyStopSpeak) {
     BoyStopSpeak();
-    g_speakCompleteReason = 3;
     return true;
   }
-  return false;
-}
-
-bool ScreenReaderDriverBOY::IsSpeaking() {
-  return (g_speakCompleteReason == -1);
-}
 
 bool ScreenReaderDriverBOY::IsActive() {
   if (BoyIsRunning) return BoyIsRunning();
