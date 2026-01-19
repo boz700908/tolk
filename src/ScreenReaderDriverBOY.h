@@ -33,7 +33,7 @@ private:
   typedef void (__stdcall *BoyCtrlUninitialize)();
   typedef bool (__stdcall *BoyCtrlIsReaderRunning)();
   typedef int (__stdcall *BoyCtrlSpeak2)(const wchar_t* text);
-  typedef int (__stdcall *BoyCtrlStopSpeaking)(bool withSlave);
+  __stdcall *BoyCtrlStopSpeaking2();
 
 
 private:
@@ -42,7 +42,7 @@ private:
   BoyCtrlUninitialize BoyUninit;
   BoyCtrlIsReaderRunning BoyIsRunning;
   BoyCtrlSpeak2 BoySpeak;
-  BoyCtrlStopSpeaking BoyStopSpeak;
+  BoyCtrlStopSpeaking2 BoyStopSpeak;
 };
 
 #endif // _SCREEN_READER_DRIVER_BOY_H_

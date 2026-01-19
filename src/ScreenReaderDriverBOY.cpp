@@ -38,7 +38,7 @@ ScreenReaderDriverBOY::ScreenReaderDriverBOY() :
     BoyUninit = (BoyCtrlUninitialize)GetProcAddress(controller, "BoyCtrlUninitialize");
     BoyIsRunning = (BoyCtrlIsReaderRunning)GetProcAddress(controller, "BoyCtrlIsReaderRunning");
     BoySpeak = (BoyCtrlSpeak2)GetProcAddress(controller, "BoyCtrlSpeak2");
-    BoyStopSpeak = (BoyCtrlStopSpeaking)GetProcAddress(controller, "BoyCtrlStopSpeaking");
+    BoyStopSpeak = (BoyCtrlStopSpeaking2)GetProcAddress(controller, "BoyCtrlStopSpeaking2");
         BoyInit(NULL);
   }
 }
@@ -62,7 +62,7 @@ bool ScreenReaderDriverBOY::Braille(const wchar_t *str) {
 
 bool ScreenReaderDriverBOY::Silence() {
   if (BoyStopSpeak) {
-    BoyStopSpeak(true);
+    BoyStopSpeak();
     g_speakCompleteReason = 3;
     return true;
   }
