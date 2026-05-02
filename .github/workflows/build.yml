@@ -46,6 +46,7 @@ jobs:
           path: |
             build\src\Release\Tolk.dll
             build\src\Release\Tolk.lib
+            libs\${{ matrix.arch }}\*
 
       - name: Upload .NET DLL artifact
         if: matrix.arch == 'x64'
@@ -68,54 +69,55 @@ jobs:
           name: tolk-docs
           path: build\docs\README.html
 
-  release:
-    name: Create Release
+  package:
+    name: Create Distribution Archive
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: windows-latest
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
         with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Setup Pandoc
-        uses: pandoc/actions/setup@v1
-
-      - name: Build x86
-        run: |
-          cmake -B build-x86 -A Win32
-          cmake --build build-x86 --config Release
-
-      - name: Build x64
-        run: |
-          cmake -B build-x64 -A x64
-          cmake --build build-x64 --config Release
+          path: artifacts
 
       - name: Prepare distribution
         shell: cmd
         run: |
           mkdir dist\x86
           mkdir dist\x64
-          copy build-x86\src\Release\Tolk.dll dist\x86\
-          copy libs\x86\* dist\x86\
-          copy build-x64\src\Release\Tolk.dll dist\x64\
-          copy libs\x64\* dist\x64\
-          copy build-x64\src\dotnet\TolkDotNet.dll dist\ 2>nul
-          copy build-x64\src\java\Tolk.jar dist\ 2>nul
-          copy build-x64\docs\README.html dist\ 2>nul
-          copy LICENSE*.txt dist\
+          copy artifacts\tolk-x86\* dist\x86\
+          copy artifacts\tolk-x64\* dist\x64\
+          if exist artifacts\tolk-dotnet\TolkDotNet.dll copy artifacts\tolk-dotnet\TolkDotNet.dll dist\
+          if exist artifacts\tolk-java\Tolk.jar copy artifacts\tolk-java\Tolk.jar dist\
+          if exist artifacts\tolk-docs\README.html copy artifacts\tolk-docs\README.html dist\
+          if exist LICENSE*.txt copy LICENSE*.txt dist\
 
       - name: Create archive
         shell: cmd
         run: 7z a tolk.zip .\dist\*
+
+      - name: Upload distribution archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: tolk-dist
+          path: tolk.zip
+
+  release:
+    name: Create Release
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download distribution archive
+        uses: actions/download-artifact@v4
+        with:
+          name: tolk-dist
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
