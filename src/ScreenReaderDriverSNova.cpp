@@ -33,9 +33,9 @@ ScreenReaderDriverSNova::ScreenReaderDriverSNova() :
   #else
   controller(LoadLibrary(L"dolapi32.dll")),
   #endif
-  dolAccess_GetSystem(NULL),
-  dolAccess_Action(NULL),
-  dolAccess_Command(NULL)
+  dolAccess_GetSystem(nullptr),
+  dolAccess_Action(nullptr),
+  dolAccess_Command(nullptr)
 {
   if (controller) {
     dolAccess_GetSystem = (DolAccess_GetSystem)GetProcAddress(controller, "_DolAccess_GetSystem@0");

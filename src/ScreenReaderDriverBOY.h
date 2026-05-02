@@ -23,19 +23,21 @@ public:
   ~ScreenReaderDriverBOY();
 
 public:
-  bool Speak(const wchar_t *str, bool interrupt);
-  bool Braille(const wchar_t *str);
-  bool IsSpeaking();
-  bool Silence();
-  bool IsActive();
-  bool Output(const wchar_t *str, bool interrupt);
+  bool Speak(const wchar_t *str, bool interrupt) override;
+  bool Braille(const wchar_t *str) override;
+  bool IsSpeaking() override;
+  bool Silence() override;
+  bool IsActive() override;
+  bool Output(const wchar_t *str, bool interrupt) override;
 
 private:
   typedef int (__stdcall *BoyCtrlInitialize)(const wchar_t* pathName);
   typedef void (__stdcall *BoyCtrlUninitialize)();
   typedef bool (__stdcall *BoyCtrlIsReaderRunning)();
   typedef int (__stdcall *BoyCtrlSpeak)(const wchar_t* text, bool withSlave, bool append, bool allowBreak, BoyCtrlSpeakCompleteFunc onCompletion);
+  typedef int (__stdcall *BoyCtrlSpeak3)(const wchar_t* text, bool withSlave, const wchar_t* slaveName, bool append, bool allowBreak, BoyCtrlSpeakCompleteFunc onCompletion);
   typedef int (__stdcall *BoyCtrlStopSpeaking)(bool withSlave);
+  typedef int (__stdcall *BoyCtrlStopSpeaking3)(bool withSlave, const wchar_t* slaveName);
   typedef int (__stdcall *BoyCtrlSetAnyKeyStopSpeaking)(bool withSlave);
 
 private:
@@ -44,7 +46,9 @@ private:
   BoyCtrlUninitialize BoyUninit;
   BoyCtrlIsReaderRunning BoyIsRunning;
   BoyCtrlSpeak BoySpeak;
+  BoyCtrlSpeak3 BoySpeakV3;
   BoyCtrlStopSpeaking BoyStopSpeak;
+  BoyCtrlStopSpeaking3 BoyStopSpeakV3;
 };
 
 #endif // _SCREEN_READER_DRIVER_BOY_H_

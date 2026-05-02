@@ -10,7 +10,7 @@
 
 ScreenReaderDriverSAPI::ScreenReaderDriverSAPI() :
   ScreenReaderDriver(L"SAPI", true, false),
-  controller(NULL)
+  controller(nullptr)
 {
   Initialize();
 }
@@ -23,7 +23,7 @@ bool ScreenReaderDriverSAPI::Speak(const wchar_t *str, bool interrupt) {
   if (!controller) return false;
   DWORD flags = SPF_ASYNC | SPF_IS_NOT_XML;
   if (interrupt) flags |= SPF_PURGEBEFORESPEAK;
-  return SUCCEEDED(controller->Speak(str, flags, NULL));
+  return SUCCEEDED(controller->Speak(str, flags, nullptr));
 }
 
 bool ScreenReaderDriverSAPI::IsSpeaking() {
@@ -32,18 +32,18 @@ bool ScreenReaderDriverSAPI::IsSpeaking() {
   // The second parameter to GetStatus() can be NULL,
   // suppress warning when compiling with /analyze.
 #pragma warning(suppress:6387)
-  if (FAILED(controller->GetStatus(&status, NULL))) return false;
+  if (FAILED(controller->GetStatus(&status, nullptr))) return false;
   return (status.dwRunningState == SPRS_IS_SPEAKING);
 }
 
 bool ScreenReaderDriverSAPI::Silence() {
   if (!controller) return false;
   const DWORD flags = SPF_ASYNC | SPF_IS_NOT_XML | SPF_PURGEBEFORESPEAK;
-  return SUCCEEDED(controller->Speak(NULL, flags, NULL));
+  return SUCCEEDED(controller->Speak(nullptr, flags, nullptr));
 }
 
 void ScreenReaderDriverSAPI::Initialize() {
-  if (controller || FAILED(CoCreateInstance(CLSID_SpVoice, NULL, CLSCTX_INPROC_SERVER, IID_ISpVoice, (void **)&controller))) {
+  if (controller || FAILED(CoCreateInstance(CLSID_SpVoice, nullptr, CLSCTX_INPROC_SERVER, IID_ISpVoice, (void **)&controller))) {
     // This is here for symmetry with other drivers
     // and so compiling /analyze won't throw a warning.
     return;
@@ -53,6 +53,6 @@ void ScreenReaderDriverSAPI::Initialize() {
 void ScreenReaderDriverSAPI::Finalize() {
   if (controller) {
     controller->Release();
-    controller = NULL;
+    controller = nullptr;
   }
 }

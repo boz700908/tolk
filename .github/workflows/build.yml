@@ -1,0 +1,126 @@
+name: Build
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build ${{ matrix.arch }}
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            cmake_arch: x64
+          - arch: x86
+            cmake_arch: Win32
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Pandoc
+        uses: pandoc/actions/setup@v1
+
+      - name: Configure CMake
+        run: cmake -B build -A ${{ matrix.cmake_arch }}
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Upload DLL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tolk-${{ matrix.arch }}
+          path: |
+            build\src\Release\Tolk.dll
+            build\src\Release\Tolk.lib
+
+      - name: Upload .NET DLL artifact
+        if: matrix.arch == 'x64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tolk-dotnet
+          path: build\src\dotnet\TolkDotNet.dll
+
+      - name: Upload Java JAR artifact
+        if: matrix.arch == 'x64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tolk-java
+          path: build\src\java\Tolk.jar
+
+      - name: Upload documentation artifact
+        if: matrix.arch == 'x64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tolk-docs
+          path: build\docs\README.html
+
+  release:
+    name: Create Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Pandoc
+        uses: pandoc/actions/setup@v1
+
+      - name: Build x86
+        run: |
+          cmake -B build-x86 -A Win32
+          cmake --build build-x86 --config Release
+
+      - name: Build x64
+        run: |
+          cmake -B build-x64 -A x64
+          cmake --build build-x64 --config Release
+
+      - name: Prepare distribution
+        shell: cmd
+        run: |
+          mkdir dist\x86
+          mkdir dist\x64
+          copy build-x86\src\Release\Tolk.dll dist\x86\
+          copy libs\x86\* dist\x86\
+          copy build-x64\src\Release\Tolk.dll dist\x64\
+          copy libs\x64\* dist\x64\
+          copy build-x64\src\dotnet\TolkDotNet.dll dist\ 2>nul
+          copy build-x64\src\java\Tolk.jar dist\ 2>nul
+          copy build-x64\docs\README.html dist\ 2>nul
+          copy LICENSE*.txt dist\
+
+      - name: Create archive
+        shell: cmd
+        run: 7z a tolk.zip .\dist\*
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: tolk-${{ github.ref_name }}
+          files: tolk.zip
+          draft: false
+          prerelease: false

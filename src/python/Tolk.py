@@ -8,7 +8,10 @@
 
 from ctypes import cdll, CFUNCTYPE, c_bool, c_wchar_p
 
-_tolk = cdll.Tolk
+try:
+  _tolk = cdll.Tolk
+except OSError:
+  raise OSError("Failed to load Tolk.dll. Make sure it is in the DLL search path.")
 
 _proto_load = CFUNCTYPE(None)
 load = _proto_load(("Tolk_Load", _tolk))

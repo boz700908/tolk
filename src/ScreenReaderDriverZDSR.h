@@ -18,12 +18,12 @@ public:
   ~ScreenReaderDriverZDSR();
 
 public:
-  bool Speak(const wchar_t *str, bool interrupt);
-  bool Braille(const wchar_t *str);
-  bool IsSpeaking();
-  bool Silence();
-  bool IsActive();
-  bool Output(const wchar_t *str, bool interrupt);
+  bool Speak(const wchar_t *str, bool interrupt) override;
+  bool Braille(const wchar_t *str) override;
+  bool IsSpeaking() override;
+  bool Silence() override;
+  bool IsActive() override;
+  bool Output(const wchar_t *str, bool interrupt) override;
 
 private:
   typedef int (WINAPI *ZDSRInitTTS)(int channelType, const wchar_t* channelName, BOOL bKeyDownInterrupt);

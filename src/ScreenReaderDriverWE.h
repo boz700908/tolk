@@ -18,12 +18,12 @@ public:
   ~ScreenReaderDriverWE();
 
 public:
-  bool Speak(const wchar_t *str, bool interrupt);
-  bool Braille(const wchar_t *str);
-  bool IsSpeaking() { return false; }
-  bool Silence();
-  bool IsActive();
-  bool Output(const wchar_t *str, bool interrupt);
+  bool Speak(const wchar_t *str, bool interrupt) override;
+  bool Braille(const wchar_t *str) override;
+  bool IsSpeaking() override { return false; }
+  bool Silence() override;
+  bool IsActive() override;
+  bool Output(const wchar_t *str, bool interrupt) override;
 
 private:
   void Initialize();

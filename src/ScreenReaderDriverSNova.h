@@ -18,12 +18,12 @@ public:
   ~ScreenReaderDriverSNova();
 
 public:
-  bool Speak(const wchar_t *str, bool interrupt);
-  bool Braille(const wchar_t *) { return false; }
-  bool IsSpeaking() { return false; }
-  bool Silence();
-  bool IsActive();
-  bool Output(const wchar_t *str, bool interrupt) { return Speak(str, interrupt); }
+  bool Speak(const wchar_t *str, bool interrupt) override;
+  bool Braille(const wchar_t *) override { return false; }
+  bool IsSpeaking() override { return false; }
+  bool Silence() override;
+  bool IsActive() override;
+  bool Output(const wchar_t *str, bool interrupt) override { return Speak(str, interrupt); }
 
 private:
   typedef DWORD (__stdcall *DolAccess_GetSystem)();

@@ -9,11 +9,9 @@
 #include <string>
 #include "ScreenReaderDriverJAWS.h"
 
-using namespace std;
-
 ScreenReaderDriverJAWS::ScreenReaderDriverJAWS() :
   ScreenReaderDriver(L"JAWS", true, true),
-  controller(NULL)
+  controller(nullptr)
 {
   if (IsRunning()) Initialize();
 }
@@ -25,6 +23,7 @@ ScreenReaderDriverJAWS::~ScreenReaderDriverJAWS() {
 bool ScreenReaderDriverJAWS::Speak(const wchar_t *str, bool interrupt) {
   if (!controller) return false;
   const BSTR bstr = SysAllocString(str);
+  if (!bstr) return false;
   VARIANT_BOOL result = VARIANT_FALSE;
   const VARIANT_BOOL flush = interrupt ? VARIANT_TRUE : VARIANT_FALSE;
   const bool succeeded = SUCCEEDED(controller->SayString(bstr, flush, &result));
@@ -34,15 +33,16 @@ bool ScreenReaderDriverJAWS::Speak(const wchar_t *str, bool interrupt) {
 
 bool ScreenReaderDriverJAWS::Braille(const wchar_t *str) {
   if (!controller) return false;
-  wstring wstr(str);
-  wstring::size_type i = wstr.find_first_of(L"\"");
-  while (i != wstring::npos) {
+  std::wstring wstr(str);
+  std::wstring::size_type i = wstr.find_first_of(L"\"");
+  while (i != std::wstring::npos) {
     wstr[i] = L'\'';
     i = wstr.find_first_of(L"\"", i + 1);
   }
   wstr.insert(0, L"BrailleString(\"");
   wstr.append(L"\")");
   const BSTR bstr = SysAllocString(wstr.c_str());
+  if (!bstr) return false;
   VARIANT_BOOL result = VARIANT_FALSE;
   const bool succeeded = SUCCEEDED(controller->RunFunction(bstr, &result));
   SysFreeString(bstr);
@@ -71,7 +71,7 @@ bool ScreenReaderDriverJAWS::Output(const wchar_t *str, bool interrupt) {
 }
 
 void ScreenReaderDriverJAWS::Initialize() {
-  if (controller || FAILED(CoCreateInstance(CLSID_JawsApi, NULL, CLSCTX_INPROC_SERVER, IID_IJawsApi, (void **)&controller))) {
+  if (controller || FAILED(CoCreateInstance(CLSID_JawsApi, nullptr, CLSCTX_INPROC_SERVER, IID_IJawsApi, (void **)&controller))) {
     // This is here for symmetry with other drivers
     // and so compiling /analyze won't throw a warning.
     return;
@@ -81,6 +81,6 @@ void ScreenReaderDriverJAWS::Initialize() {
 void ScreenReaderDriverJAWS::Finalize() {
   if (controller) {
     controller->Release();
-    controller = NULL;
+    controller = nullptr;
   }
 }

@@ -15,10 +15,10 @@ ScreenReaderDriverSA::ScreenReaderDriverSA() :
   #else
   controller(LoadLibrary(L"SAAPI32.dll")),
   #endif
-  sa_SayW(NULL),
-  sa_BrlShowTextW(NULL),
-  sa_StopAudio(NULL),
-  sa_IsRunning(NULL)
+  sa_SayW(nullptr),
+  sa_BrlShowTextW(nullptr),
+  sa_StopAudio(nullptr),
+  sa_IsRunning(nullptr)
 {
   if (controller) {
     sa_SayW = (SA_SayW)GetProcAddress(controller, "SA_SayW");

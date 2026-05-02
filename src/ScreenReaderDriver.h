@@ -16,7 +16,8 @@ protected:
     hasSpeech(speech),
     hasBraille(braille)
     {}
-  ScreenReaderDriver& operator=(const ScreenReaderDriver&) {}
+  ScreenReaderDriver(const ScreenReaderDriver&) = delete;
+  ScreenReaderDriver& operator=(const ScreenReaderDriver&) = delete;
 
 public:
   virtual ~ScreenReaderDriver() {}
@@ -30,9 +31,9 @@ public:
   virtual bool Output(const wchar_t *str, bool interrupt) = 0;
 
 public:
-  const wchar_t * GetName() { return name; }
-  bool HasSpeech() { return hasSpeech; }
-  bool HasBraille() { return hasBraille; }
+  const wchar_t * GetName() const { return name; }
+  bool HasSpeech() const { return hasSpeech; }
+  bool HasBraille() const { return hasBraille; }
 
 private:
   const wchar_t *name;

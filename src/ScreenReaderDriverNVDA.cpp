@@ -18,10 +18,10 @@ ScreenReaderDriverNVDA::ScreenReaderDriverNVDA() :
   #else
   controller(LoadLibrary(L"nvdaControllerClient32.dll")),
   #endif
-  nvdaController_speakText(NULL),
-  nvdaController_brailleMessage(NULL),
-  nvdaController_cancelSpeech(NULL),
-  nvdaController_testIfRunning(NULL)
+  nvdaController_speakText(nullptr),
+  nvdaController_brailleMessage(nullptr),
+  nvdaController_cancelSpeech(nullptr),
+  nvdaController_testIfRunning(nullptr)
 {
   if (controller) {
     nvdaController_speakText = (NVDAController_speakText)GetProcAddress(controller, "nvdaController_speakText");

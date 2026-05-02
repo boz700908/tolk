@@ -10,8 +10,8 @@
 
 ScreenReaderDriverZT::ScreenReaderDriverZT() :
   ScreenReaderDriver(L"ZoomText", true, false),
-  controller(NULL),
-  speech(NULL)
+  controller(nullptr),
+  speech(nullptr)
 {
   if (IsRunning()) Initialize();
 }
@@ -21,7 +21,7 @@ ScreenReaderDriverZT::~ScreenReaderDriverZT() {
 }
 
 bool ScreenReaderDriverZT::Speak(const wchar_t *str, bool interrupt) {
-  if (!controller) return false;
+  if (!controller || !speech) return false;
   IVoice *voice;
   if (FAILED(speech->get_CurrentVoice(&voice))) return false;
   if (interrupt && FAILED(voice->put_AllowInterrupt(VARIANT_TRUE))) {
@@ -29,6 +29,10 @@ bool ScreenReaderDriverZT::Speak(const wchar_t *str, bool interrupt) {
     return false;
   }
   const BSTR bstr = SysAllocString(str);
+  if (!bstr) {
+    voice->Release();
+    return false;
+  }
   const bool succeeded = SUCCEEDED(voice->Speak(bstr));
   SysFreeString(bstr);
   if (interrupt && FAILED(voice->put_AllowInterrupt(VARIANT_FALSE))) {
@@ -40,7 +44,7 @@ bool ScreenReaderDriverZT::Speak(const wchar_t *str, bool interrupt) {
 }
 
 bool ScreenReaderDriverZT::IsSpeaking() {
-  if (!controller) return false;
+  if (!controller || !speech) return false;
   IVoice *voice;
   if (FAILED(speech->get_CurrentVoice(&voice))) return false;
   VARIANT_BOOL result = VARIANT_FALSE;
@@ -50,7 +54,7 @@ bool ScreenReaderDriverZT::IsSpeaking() {
 }
 
 bool ScreenReaderDriverZT::Silence() {
-  if (!controller) return false;
+  if (!controller || !speech) return false;
   IVoice *voice;
   if (FAILED(speech->get_CurrentVoice(&voice))) return false;
   const bool succeeded = SUCCEEDED(voice->Stop());
@@ -68,7 +72,7 @@ bool ScreenReaderDriverZT::IsActive() {
 }
 
 void ScreenReaderDriverZT::Initialize() {
-  if (controller || FAILED(CoCreateInstance(CLSID_ZoomText, NULL, CLSCTX_LOCAL_SERVER, IID_IZoomText2, (void **)&controller)))
+  if (controller || FAILED(CoCreateInstance(CLSID_ZoomText, nullptr, CLSCTX_LOCAL_SERVER, IID_IZoomText2, (void **)&controller)))
     return;
   if (FAILED(controller->get_Speech(&speech))) Finalize();
 }
@@ -76,10 +80,10 @@ void ScreenReaderDriverZT::Initialize() {
 void ScreenReaderDriverZT::Finalize() {
   if (speech) {
     speech->Release();
-    speech = NULL;
+    speech = nullptr;
   }
   if (controller) {
     controller->Release();
-    controller = NULL;
+    controller = nullptr;
   }
 }

@@ -1,6 +1,6 @@
 /**
  *  Product:        Tolk
- *  File:           ScreenReaderDriverBOY.h
+ *  File:           ScreenReaderDriverBOY.cpp
  *  Description:    Driver for the BOY screen reader.
  *  Copyright:      (c) 2024, qt06<qt06.com@gmail.com>
  *  License:        LGPLv3
@@ -13,17 +13,15 @@
 #include <cwctype>
 #include <fstream>
 
-typedef void(__stdcall *BoyCtrlSetAnyKeyStopSpeakingFunc)(bool);
-
 extern "C" IMAGE_DOS_HEADER __ImageBase;
 
 static int g_speakCompleteReason = -1;
 
-static bool g_speakParam1 = false;
-static bool g_speakParam2 = false;
-static bool g_speakParam3 = false;
-static bool g_stopSpeakValue = false;
+static bool g_withSlave = false;
+static bool g_append = false;
+static bool g_allowBreak = false;
 static bool g_enableAnyKeyStopFunc = false;
+static std::wstring g_slaveName;
 
 static bool ReadBoolFromIniStrict(const wchar_t* section, const wchar_t* key, bool& outValue, const std::wstring& iniPath)
 {
@@ -35,6 +33,18 @@ static bool ReadBoolFromIniStrict(const wchar_t* section, const wchar_t* key, bo
     if (val == L"true" || val == L"1")  { outValue = true;  return true; }
     if (val == L"false" || val == L"0") { outValue = false; return true; }
     return false;
+}
+
+static std::wstring ReadStringFromIni(const wchar_t* section, const wchar_t* key, const std::wstring& iniPath)
+{
+    wchar_t buf[256] = {0};
+    GetPrivateProfileStringW(section, key, L"", buf, 256, iniPath.c_str());
+    std::wstring val(buf);
+    // Trim leading and trailing whitespace
+    size_t start = val.find_first_not_of(L" \t");
+    if (start == std::wstring::npos) return L"";
+    size_t end = val.find_last_not_of(L" \t");
+    return val.substr(start, end - start + 1);
 }
 
 static bool FileExists(const std::wstring& path)
@@ -60,11 +70,11 @@ static void LoadBoyCtrlConfig()
         iniPath = std::wstring(cwd) + L"\\boyctrl.ini";
     }
 
-    ReadBoolFromIniStrict(L"Config", L"Param1", g_speakParam1, iniPath);
-    ReadBoolFromIniStrict(L"Config", L"Param2", g_speakParam2, iniPath);
-    ReadBoolFromIniStrict(L"Config", L"Param3", g_speakParam3, iniPath);
-    ReadBoolFromIniStrict(L"Config", L"Param4", g_enableAnyKeyStopFunc, iniPath);
-    g_stopSpeakValue = g_speakParam1;
+    ReadBoolFromIniStrict(L"Config", L"WithSlave", g_withSlave, iniPath);
+    ReadBoolFromIniStrict(L"Config", L"Append", g_append, iniPath);
+    ReadBoolFromIniStrict(L"Config", L"AllowBreak", g_allowBreak, iniPath);
+    ReadBoolFromIniStrict(L"Config", L"AnyKeyStop", g_enableAnyKeyStopFunc, iniPath);
+    g_slaveName = ReadStringFromIni(L"Config", L"SlaveName", iniPath);
 }
 
 void __stdcall SpeakCompleteCallback(int reason)
@@ -83,7 +93,9 @@ ScreenReaderDriverBOY::ScreenReaderDriverBOY()
     , BoyUninit(nullptr)
     , BoyIsRunning(nullptr)
     , BoySpeak(nullptr)
+    , BoySpeakV3(nullptr)
     , BoyStopSpeak(nullptr)
+    , BoyStopSpeakV3(nullptr)
 {
     if (!controller) {
         return;
@@ -95,17 +107,19 @@ ScreenReaderDriverBOY::ScreenReaderDriverBOY()
     BoyUninit    = reinterpret_cast<BoyCtrlUninitialize>( GetProcAddress(controller, "BoyCtrlUninitialize"));
     BoyIsRunning = reinterpret_cast<BoyCtrlIsReaderRunning>(GetProcAddress(controller, "BoyCtrlIsReaderRunning"));
     BoySpeak     = reinterpret_cast<BoyCtrlSpeak>(        GetProcAddress(controller, "BoyCtrlSpeak"));
+    BoySpeakV3   = reinterpret_cast<BoyCtrlSpeak3>(       GetProcAddress(controller, "BoyCtrlSpeak3"));
     BoyStopSpeak = reinterpret_cast<BoyCtrlStopSpeaking>(GetProcAddress(controller, "BoyCtrlStopSpeaking"));
+    BoyStopSpeakV3 = reinterpret_cast<BoyCtrlStopSpeaking3>(GetProcAddress(controller, "BoyCtrlStopSpeaking3"));
 
     if (BoyInit) {
         BoyInit(nullptr);
     }
 
-    auto pAnyKeyStop = reinterpret_cast<BoyCtrlSetAnyKeyStopSpeakingFunc>(
+    auto pAnyKeyStop = reinterpret_cast<BoyCtrlSetAnyKeyStopSpeaking>(
         GetProcAddress(controller, "BoyCtrlSetAnyKeyStopSpeaking"));
 
     if (g_enableAnyKeyStopFunc && pAnyKeyStop) {
-        pAnyKeyStop(g_stopSpeakValue);
+        pAnyKeyStop(g_withSlave);
     }
 }
 
@@ -125,8 +139,12 @@ ScreenReaderDriverBOY::~ScreenReaderDriverBOY()
 bool ScreenReaderDriverBOY::Speak(const wchar_t* str, bool /*interrupt*/)
 {
     g_speakCompleteReason = -1;
+    if (g_withSlave && BoySpeakV3) {
+        const wchar_t* slaveName = g_slaveName.empty() ? nullptr : g_slaveName.c_str();
+        return (BoySpeakV3(str, g_withSlave, slaveName, g_append, g_allowBreak, SpeakCompleteCallback) == 0);
+    }
     if (BoySpeak) {
-        return (BoySpeak(str, g_speakParam1, g_speakParam2, g_speakParam3, SpeakCompleteCallback) == 0);
+        return (BoySpeak(str, g_withSlave, g_append, g_allowBreak, SpeakCompleteCallback) == 0);
     }
     return false;
 }
@@ -138,8 +156,14 @@ bool ScreenReaderDriverBOY::Braille(const wchar_t* /*str*/)
 
 bool ScreenReaderDriverBOY::Silence()
 {
+    if (g_withSlave && BoyStopSpeakV3) {
+        const wchar_t* slaveName = g_slaveName.empty() ? nullptr : g_slaveName.c_str();
+        BoyStopSpeakV3(g_withSlave, slaveName);
+        g_speakCompleteReason = 3;
+        return true;
+    }
     if (BoyStopSpeak) {
-        BoyStopSpeak(g_stopSpeakValue);
+        BoyStopSpeak(g_withSlave);
         g_speakCompleteReason = 3;
         return true;
     }
