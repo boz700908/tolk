@@ -34,8 +34,14 @@ set(TOLK_HEADERS
 
 # JNI support
 if(TOLK_BUILD_JNI)
-  find_package(JNI REQUIRED)
-  list(APPEND TOLK_SOURCES TolkJNI.cpp)
+  find_package(JNI QUIET)
+  if(JNI_FOUND)
+    list(APPEND TOLK_SOURCES TolkJNI.cpp)
+    message(STATUS "JNI found, building with Java Native Interface support")
+  else()
+    message(WARNING "JNI not found, skipping Java Native Interface support")
+    set(TOLK_BUILD_JNI OFF)
+  endif()
 endif()
 
 # DLL target

@@ -8,7 +8,7 @@ echo ============================================
 :: x86 build
 echo.
 echo [1/4] Configuring x86...
-cmake -B build-x86 -A Win32 -DTOLK_BUILD_JNI=OFF
+cmake -B build-x86 -A Win32
 if %errorlevel% neq 0 (
     echo ERROR: x86 configuration failed.
     exit /b 1
