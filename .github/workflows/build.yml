@@ -22,10 +22,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -48,28 +48,28 @@ jobs:
           copy libs\${{ matrix.arch }}\* staging\
 
       - name: Upload arch artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tolk-${{ matrix.arch }}
           path: staging\*
 
       - name: Upload .NET DLL artifact
         if: matrix.arch == 'x64'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tolk-dotnet
           path: build\src\dotnet\TolkDotNet.dll
 
       - name: Upload Java JAR artifact
         if: matrix.arch == 'x64'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tolk-java
           path: build\src\java\Tolk.jar
 
       - name: Upload documentation artifact
         if: matrix.arch == 'x64'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tolk-docs
           path: build\docs\README.html
@@ -81,10 +81,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -105,7 +105,7 @@ jobs:
         run: 7z a tolk.zip .\dist\*
 
       - name: Upload distribution archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tolk-dist
           path: tolk.zip
@@ -120,12 +120,12 @@ jobs:
 
     steps:
       - name: Download distribution archive
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: tolk-dist
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: tolk-${{ github.ref_name }}
           files: tolk.zip
