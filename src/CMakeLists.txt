@@ -70,3 +70,24 @@ install(TARGETS Tolk
   ARCHIVE DESTINATION lib
 )
 install(FILES Tolk.h TolkVersion.h DESTINATION include)
+
+# --- Post-build: assemble dist directory ---
+set(TOLK_DIST_DIR "${CMAKE_BINARY_DIR}/dist/${TOLK_ARCH}")
+
+# Copy compiled Tolk.dll and Tolk.lib to dist after build
+add_custom_command(TARGET Tolk POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${TOLK_DIST_DIR}"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "$<TARGET_FILE:Tolk>" "${TOLK_DIST_DIR}/"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "$<TARGET_LINKER_FILE:Tolk>" "${TOLK_DIST_DIR}/"
+  COMMENT "Copying Tolk DLL/LIB to dist/${TOLK_ARCH}"
+)
+
+# Copy architecture-specific libs (DLLs, ini files) to dist
+file(GLOB TOLK_LIB_FILES "${TOLK_LIBS_DIR}/*")
+add_custom_command(TARGET Tolk POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    ${TOLK_LIB_FILES} "${TOLK_DIST_DIR}/"
+  COMMENT "Copying libs/${TOLK_ARCH} dependencies to dist/${TOLK_ARCH}"
+)

@@ -11,6 +11,14 @@ option(TOLK_BUILD_DOTNET "Build .NET wrapper DLL" ON)
 option(TOLK_BUILD_JAVA "Build Java JAR" ON)
 option(TOLK_BUILD_DOCS "Build documentation" ON)
 
+# Detect architecture for libs directory
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  set(TOLK_ARCH "x64")
+else()
+  set(TOLK_ARCH "x86")
+endif()
+set(TOLK_LIBS_DIR "${CMAKE_SOURCE_DIR}/libs/${TOLK_ARCH}")
+
 # Core C++ DLL
 add_subdirectory(src)
 
