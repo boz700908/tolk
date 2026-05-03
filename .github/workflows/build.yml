@@ -21,10 +21,10 @@ jobs:
             cmake_arch: Win32
 
     steps:
-      - name: Checkout
+      - name: Checkout Source Code
         uses: actions/checkout@v6
 
-      - name: Setup Java
+      - name: Setup Java Environment
         uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -33,40 +33,40 @@ jobs:
       - name: Setup Pandoc
         uses: pandoc/actions/setup@v1
 
-      - name: Configure CMake
+      - name: Configure CMake Project
         run: cmake -B build -A ${{ matrix.cmake_arch }}
 
-      - name: Build
+      - name: Build Project
         run: cmake --build build --config Release
 
-      - name: Stage arch artifact
+      - name: Stage Build Artifacts
         shell: cmd
         run: |
           mkdir staging
           copy build\src\Release\* staging\
           copy libs\${{ matrix.arch }}\* staging\
 
-      - name: Upload arch artifact
+      - name: Upload Architecture Artifact
         uses: actions/upload-artifact@v7
         with:
           name: tolk-${{ matrix.arch }}
           path: staging\*
 
-      - name: Upload .NET DLL artifact
+      - name: Upload .NET Library
         if: matrix.arch == 'x64'
         uses: actions/upload-artifact@v7
         with:
           name: tolk-dotnet
           path: build\src\dotnet\*
 
-      - name: Upload Java JAR artifact
+      - name: Upload Java Archive
         if: matrix.arch == 'x64'
         uses: actions/upload-artifact@v7
         with:
           name: tolk-java
           path: build\src\java\*
 
-      - name: Upload documentation artifact
+      - name: Upload Documentation
         if: matrix.arch == 'x64'
         uses: actions/upload-artifact@v7
         with:
@@ -74,20 +74,20 @@ jobs:
           path: build\docs\*
 
   package:
-    name: Create Distribution Archive
+    name: Package Distribution Archive
     needs: build
     runs-on: windows-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Source Code
         uses: actions/checkout@v6
 
-      - name: Download all artifacts
+      - name: Download All Build Artifacts
         uses: actions/download-artifact@v8
         with:
           path: artifacts
 
-      - name: Prepare distribution
+      - name: Prepare Release Package
         shell: cmd
         run: |
           mkdir dist\x86
@@ -99,44 +99,47 @@ jobs:
           xcopy /E /Y artifacts\tolk-docs\* dist\
           copy LICENSE* dist\
 
-      - name: Compress Release Zip
+      - name: Compress Release Package
         shell: cmd
         run: |
           cd dist
           tar -a -c -f tolk.zip *
 
-      - name: Upload distribution archive
+      - name: Upload Compressed Archive
         uses: actions/upload-artifact@v7
         with:
           name: tolk-dist
           path: dist\tolk.zip
 
   release:
-    name: Create Release
+    name: Create Official Release
     needs: package
     runs-on: windows-latest
     permissions:
       contents: write
 
     steps:
-      - name: Download distribution archive
+      - name: Checkout Source Code
+        uses: actions/checkout@v6
+
+      - name: Download Distribution Package
         uses: actions/download-artifact@v8
         with:
           name: tolk-dist
 
-      - name: Generate Commit Changelog
-        id: changelog
+      - name: Initialize Release Information
+        id: release_info
         run: |
-          echo "COMMIT_LOG=$(git log --pretty=oneline -1)" >> $env:GITHUB_ENV
+          echo "TITLE=Tolk-${{ github.sha }}" >> $env:GITHUB_ENV
+          echo "BODY=Commit Hash: ${{ github.sha }}
+Target Branch: ${{ github.ref_name }}" >> $env:GITHUB_ENV
 
-      - name: Create GitHub Release
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: release-build
-          name: Tolk Build ${{ env.COMMIT_LOG }}
-          body: |
-            Build from commit: ${{ github.sha }}
-            Commit Info: ${{ env.COMMIT_LOG }}
+          name: ${{ env.TITLE }}
+          body: ${{ env.BODY }}
           files: tolk.zip
           draft: false
           prerelease: false
