@@ -74,7 +74,7 @@ jobs:
           path: build\docs\*
 
   package:
-    name: Package Distribution Archive
+    name: Create Release Package
     needs: build
     runs-on: windows-latest
 
@@ -112,7 +112,7 @@ jobs:
           path: dist\tolk.zip
 
   release:
-    name: Create Official Release
+    name: Create Release
     needs: package
     runs-on: windows-latest
     permissions:
@@ -122,7 +122,7 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v6
 
-      - name: Download Distribution Package
+      - name: Download Release Package
         uses: actions/download-artifact@v8
         with:
           name: tolk-dist
@@ -131,8 +131,7 @@ jobs:
         id: release_info
         run: |
           echo "TITLE=Tolk-${{ github.sha }}" >> $env:GITHUB_ENV
-          echo "BODY=Commit Hash: ${{ github.sha }}
-Target Branch: ${{ github.ref_name }}" >> $env:GITHUB_ENV
+          echo "BODY=Commit Hash: ${{ github.sha }} Target Branch: ${{ github.ref_name }}" >> $env:GITHUB_ENV
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v3
