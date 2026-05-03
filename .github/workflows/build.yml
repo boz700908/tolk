@@ -2,10 +2,10 @@ name: Build
 
 on:
   push:
-    branches: ['*']
-    tags: ['*']
+    branches: ['**']
+    tags: ['**']
   pull_request:
-    branches: ['*']
+    branches: ['**']
   workflow_dispatch:
 
 jobs:
@@ -92,16 +92,24 @@ jobs:
         run: |
           mkdir dist\x86
           mkdir dist\x64
-          xcopy /Y artifacts\tolk-x86\* dist\x86\
-          xcopy /Y artifacts\tolk-x64\* dist\x64\
-          if exist artifacts\* copy artifacts\* dist\
-          if exist LICENSE* copy LICENSE* dist\
+          xcopy /E /Y artifacts\tolk-x86\* dist\x86\
+          xcopy /E /Y artifacts\tolk-x64\* dist\x64\
+          xcopy /E /Y artifacts\tolk-dotnet\* dist\
+          xcopy /E /Y artifacts\tolk-java\* dist\
+          xcopy /E /Y artifacts\tolk-docs\* dist\
+          copy LICENSE* dist\
+
+      - name: Compress Release Zip
+        shell: cmd
+        run: |
+          cd dist
+          tar -a -c -f tolk.zip *
 
       - name: Upload distribution archive
         uses: actions/upload-artifact@v7
         with:
           name: tolk-dist
-          path: dist\*
+          path: dist\tolk.zip
 
   release:
     name: Create Release
@@ -116,14 +124,19 @@ jobs:
         with:
           name: tolk-dist
 
+      - name: Generate Commit Changelog
+        id: changelog
+        run: |
+          echo "COMMIT_LOG=$(git log --pretty=oneline -1)" >> $env:GITHUB_ENV
+
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
-        tag_name: release-build
-        name: tolk-${{ steps.changelog.outputs.COMMIT_LOG }}
-        body: |
-          ${{ steps.changelog.outputs.COMMIT_LOG }}
-          *Build from commit ${{ github.sha }}*
+          tag_name: release-build
+          name: Tolk Build ${{ env.COMMIT_LOG }}
+          body: |
+            Build from commit: ${{ github.sha }}
+            Commit Info: ${{ env.COMMIT_LOG }}
           files: tolk.zip
           draft: false
           prerelease: false
