@@ -117,10 +117,10 @@ jobs:
           name: tolk-dist
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@v1
         with:
         tag_name: release-build
-        name: Release Build tolk-${{ steps.changelog.outputs.COMMIT_LOG }}
+        name: tolk-${{ steps.changelog.outputs.COMMIT_LOG }}
         body: |
           ${{ steps.changelog.outputs.COMMIT_LOG }}
           *Build from commit ${{ github.sha }}*
