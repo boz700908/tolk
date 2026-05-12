@@ -112,7 +112,7 @@ ScreenReaderDriverBOY::ScreenReaderDriverBOY()
     BoyStopSpeakV3 = reinterpret_cast<BoyCtrlStopSpeaking3>(GetProcAddress(controller, "BoyCtrlStopSpeaking3"));
 
     if (BoyInit) {
-        BoyInit(boyctrl.log);
+        BoyInit(nullptr);
     }
 
     auto pAnyKeyStop = reinterpret_cast<BoyCtrlSetAnyKeyStopSpeaking>(
