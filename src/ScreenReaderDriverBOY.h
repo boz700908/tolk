@@ -10,7 +10,13 @@
 #define _SCREEN_READER_DRIVER_BOY_H_
 
 #include <windows.h>
-#include "ScreenReader1,
+#include "ScreenReaderDriver.h"
+
+typedef void (__stdcall*BoyCtrlSpeakCompleteFunc)(int reason);
+
+enum BoyCtrlError {
+    e_bcerr_success = 0,
+    e_bcerr_fail = 1,
     e_bcerr_arg = 2,
     e_bcerr_unavailable = 3
 };
@@ -28,12 +34,11 @@ public:
     static int g_speakCompleteReason;
     static void __stdcall SpeakCompleteCallback(int reason);
 private:
-    HINSTANCE controller;
-    typedef int (__stdcall *BoyCtrlInitialize)(const wchar_t* pathName);
+ typedef int  (__stdcall *BoyCtrlInitialize)(const wchar_t* pathName);
     typedef void (__stdcall *BoyCtrlUninitialize)();
     typedef bool (__stdcall *BoyCtrlIsReaderRunning)();
-    typedef int (__stdcall *BoyCtrlSpeak)(const wchar_t* text, bool append, BoyCtrlSpeakCompleteFunc onCompletion);
-    typedef int (__stdcall *BoyCtrlStopSpeaking)();
+    typedef int  (__stdcall *BoyCtrlSpeak)(const wchar_t* text, bool append, BoyCtrlSpeakCompleteFunc onCompletion);
+    typedef int  (__stdcall *BoyCtrlStopSpeaking)();
     BoyCtrlInitialize BoyInit;
     BoyCtrlUninitialize BoyUninit;
     BoyCtrlIsReaderRunning BoyIsRunning;
