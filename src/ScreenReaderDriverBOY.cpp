@@ -28,40 +28,49 @@ ScreenReaderDriverBOY::ScreenReaderDriverBOY()
 #else
     controller = LoadLibraryW(L"byctrl.dll");
 #endif
-    if (!controller) {
+
+    if (!controller)
         return;
-    }
+
     BoyInit       = (BoyCtrlInitialize)GetProcAddress(controller, "BoyCtrlInitialize");
-    BoyUninit     = (BoyCtrlUninitialize)GetProcUninitialize");
+    BoyUninit     = (BoyCtrlUninitialize)GetProcAddress(controller, "BoyCtrlUninitialize");
     BoyIsRunning  = (BoyCtrlIsReaderRunning)GetProcAddress(controller, "BoyCtrlIsReaderRunning");
     BoySpeak      = (BoyCtrlSpeak)GetProcAddress(controller, "BoyCtrlSpeak");
     BoyStopSpeak  = (BoyCtrlStopSpeaking)GetProcAddress(controller, "BoyCtrlStopSpeaking");
-    if (BoyInit) {
+
+    if (BoyInit)
+    {
         int err = BoyInit(nullptr);
-        if (err != e_bcerr_success) controller = nullptr;
+        if (err != e_bcerr_success)
+        {
+            FreeLibrary(controller);
+            controller = nullptr;
         }
     }
 }
 
 ScreenReaderDriverBOY::~ScreenReaderDriverBOY()
 {
-    if (controller) {
+    if (controller)
+    {
         if (BoyUninit)
             BoyUninit();
+
         FreeLibrary(controller);
         controller = nullptr;
     }
 }
 
-bool ScreenReaderDriverBOY::Speak(const wchar_t* str, bool /*interrupt*/)
+bool ScreenReaderDriverBOY::Speak(const wchar_t* str, bool interrupt)
 {
-    g_speakCompleteReason = -1;
-    if (!controller || !BoySpeak || !str || !str[0])
+    if (!controller || !BoySpeak || !str || str[0] == L'\0')
         return false;
-    int err = BoySpeak(str, false, SpeakCompleteCallback);
-    if (err == e_bcerr_success)
-        return true;
-    return false;
+
+    // 打断旧朗读：true=打断，false=追加
+    g_speakCompleteReason = -1;
+    int err = BoySpeak(str, !interrupt, SpeakCompleteCallback);
+
+    return (err == e_bcerr_success);
 }
 
 bool ScreenReaderDriverBOY::Braille(const wchar_t* /*str*/)
@@ -71,6 +80,7 @@ bool ScreenReaderDriverBOY::Braille(const wchar_t* /*str*/)
 
 bool ScreenReaderDriverBOY::IsSpeaking()
 {
+    // 回调未返回 = 正在朗读
     return (g_speakCompleteReason == -1);
 }
 
@@ -78,9 +88,11 @@ bool ScreenReaderDriverBOY::Silence()
 {
     if (!controller || !BoyStopSpeak)
         return false;
+
     int err = BoyStopSpeak();
-    if (err == e_bcerr_success) {
-        g_speakCompleteReason = 3;
+    if (err == e_bcerr_success)
+    {
+        g_speakCompleteReason = e_bcerr_unavailable;
         return true;
     }
     return false;
@@ -95,7 +107,7 @@ bool ScreenReaderDriverBOY::IsActive()
 
 bool ScreenReaderDriverBOY::Output(const wchar_t* str, bool interrupt)
 {
-    bool spoke    = Speak(str, interrupt);
+    bool spoke = Speak(str, interrupt);
     bool brailled = Braille(str);
-    return (spoke || brailled);
+    return spoke || brailled;
 }
