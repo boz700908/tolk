@@ -12,7 +12,7 @@
 #include <windows.h>
 #include "ScreenReaderDriver.h"
 
-typedef void (__stdcall*BoyCtrlSpeakCompleteFunc)(int reason);
+typedef void (__stdcall* BoyCtrlSpeakCompleteFunc)(int reason);
 
 enum BoyCtrlError {
     e_bcerr_success = 0,
@@ -21,10 +21,8 @@ enum BoyCtrlError {
     e_bcerr_unavailable = 3
 };
 
-class ScreenReaderDriverBOY : public ScreenReaderDriver {
-public:
-    ScreenReaderDriverBOY();
-    ~ScreenReaderDriverBOY();
+class ScreenReaderDriverBOY : public Screen();
+ScreenReaderDriverBOY();
     bool Speak(const wchar_t *str, bool interrupt) override;
     bool Braille(const wchar_t *str) override;
     bool IsSpeaking() override;
@@ -34,7 +32,8 @@ public:
     static int g_speakCompleteReason;
     static void __stdcall SpeakCompleteCallback(int reason);
 private:
- typedef int  (__stdcall *BoyCtrlInitialize)(const wchar_t* pathName);
+    HINSTANCE controller;
+    typedef int  (__stdcall *BoyCtrlInitialize)(const wchar_t* pathName);
     typedef void (__stdcall *BoyCtrlUninitialize)();
     typedef bool (__stdcall *BoyCtrlIsReaderRunning)();
     typedef int  (__stdcall *BoyCtrlSpeak)(const wchar_t* text, bool append, BoyCtrlSpeakCompleteFunc onCompletion);
