@@ -66,9 +66,8 @@ bool ScreenReaderDriverBOY::Speak(const wchar_t* str, bool interrupt)
     if (!controller || !BoySpeak || !str || str[0] == L'\0')
         return false;
 
-    // 打断旧朗读：true=打断，false=追加
     g_speakCompleteReason = -1;
-    int err = BoySpeak(str, !interrupt, SpeakCompleteCallback);
+    int err = BoySpeak(str, false, SpeakCompleteCallback);
 
     return (err == e_bcerr_success);
 }
@@ -80,7 +79,6 @@ bool ScreenReaderDriverBOY::Braille(const wchar_t* /*str*/)
 
 bool ScreenReaderDriverBOY::IsSpeaking()
 {
-    // 回调未返回 = 正在朗读
     return (g_speakCompleteReason == -1);
 }
 
