@@ -31,14 +31,14 @@ ScreenReaderDriverBOY::ScreenReaderDriverBOY()
     if (!controller) {
         return;
     }
-    BoyInit       = (BoyCtrlInitialize)GetProcAddress(controller, "BoyCtrlInitialize");
-    BoyUninit     = (BoyCtrlUninitialize)GetProcUninitialize");
-    BoyIsRunning  = (BoyCtrlIsReaderRunning)GetProcAddress(controller, "BoyCtrlIsReaderRunning");
-    BoySpeak      = (BoyCtrlSpeak)GetProcAddress(controller, "BoyCtrlSpeak");
-    BoyStopSpeak  = (BoyCtrlStopSpeaking)GetProcAddress(controller, "BoyCtrlStopSpeaking");
+    BoyInit      = (BoyCtrlInitialize)GetProcAddress(controller, "BoyCtrlInitialize");
+    BoyUninit    = (BoyCtrlUninitialize)Get     = (BoyCtrlSpeak)GetProcAddress(controller, "BoyCtrlSpeak");
+    BoyStopSpeak = (BoyCtrlStopSpeaking)GetProcAddress(controller, "BoyCtrlStopSpeaking");
     if (BoyInit) {
         int err = BoyInit(nullptr);
-        if (err != e_bcerr_success) controller = nullptr;
+        if (err != e_bcerr_success) {
+            FreeLibrary(controller);
+            controller = nullptr;
         }
     }
 }
@@ -95,7 +95,3 @@ bool ScreenReaderDriverBOY::IsActive()
 
 bool ScreenReaderDriverBOY::Output(const wchar_t* str, bool interrupt)
 {
-    bool spoke    = Speak(str, interrupt);
-    bool brailled = Braille(str);
-    return (spoke || brailled);
-}
