@@ -21,23 +21,31 @@ enum BoyCtrlError {
     e_bcerr_unavailable = 3
 };
 
-class ScreenReaderDriverBOY : public Screen();
-ScreenReaderDriverBOY();
+class ScreenReaderDriverBOY : public ScreenReaderDriver
+{
+public:
+    ScreenReaderDriverBOY();
+    ~ScreenReaderDriverBOY() override;
+
     bool Speak(const wchar_t *str, bool interrupt) override;
     bool Braille(const wchar_t *str) override;
     bool IsSpeaking() override;
     bool Silence() override;
     bool IsActive() override;
     bool Output(const wchar_t *str, bool interrupt) override;
+
     static int g_speakCompleteReason;
     static void __stdcall SpeakCompleteCallback(int reason);
+
 private:
     HINSTANCE controller;
+
     typedef int  (__stdcall *BoyCtrlInitialize)(const wchar_t* pathName);
     typedef void (__stdcall *BoyCtrlUninitialize)();
     typedef bool (__stdcall *BoyCtrlIsReaderRunning)();
     typedef int  (__stdcall *BoyCtrlSpeak)(const wchar_t* text, bool append, BoyCtrlSpeakCompleteFunc onCompletion);
     typedef int  (__stdcall *BoyCtrlStopSpeaking)();
+
     BoyCtrlInitialize BoyInit;
     BoyCtrlUninitialize BoyUninit;
     BoyCtrlIsReaderRunning BoyIsRunning;
