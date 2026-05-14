@@ -67,7 +67,7 @@ bool ScreenReaderDriverBOY::Speak(const wchar_t* str, bool interrupt)
         return false;
 
     g_speakCompleteReason = -1;
-    int err = BoySpeak(str, false, SpeakCompleteCallback);
+    int err = BoySpeak(str, true, SpeakCompleteCallback);
 
     return (err == e_bcerr_success);
 }
