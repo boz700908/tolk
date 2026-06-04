@@ -5,6 +5,8 @@
  *  Copyright:      (c) 2024, qt06<qt06.com@gmail.com>
  *  License:        LGPLv3
  */
+// The BOY Project provides a header and libraries,
+// but we don't use these in order to support running even if the DLL is missing.
 
 #include "ScreenReaderDriverBOY.h"
 #include <windows.h>
