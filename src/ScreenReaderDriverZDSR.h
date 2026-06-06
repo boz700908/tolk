@@ -26,18 +26,18 @@ public:
   bool Output(const wchar_t *str, bool interrupt) override;
 
 private:
-  typedef int (WINAPI *ZDSRInitTTS)(int channelType, const wchar_t* channelName, BOOL bKeyDownInterrupt);
-  typedef int (WINAPI *ZDSRGetSpeakState)();
-  typedef int (WINAPI *ZDSRSpeak)(const wchar_t* text, BOOL bInterrupt);
-  typedef void (WINAPI *ZDSRStopSpeak)();
+  typedef int (WINAPI *InitTTS)(int channelType, const wchar_t* channelName, BOOL bKeyDownInterrupt);
+  typedef int (WINAPI *GetSpeakState)();
+  typedef int (WINAPI *Speak)(const wchar_t* text, BOOL bInterrupt);
+  typedef void (WINAPI *StopSpeak)();
 
 
 private:
   HINSTANCE controller;
-  ZDSRInitTTS zdsrInitTTS;
-  ZDSRGetSpeakState zdsrGetSpeakState;
-  ZDSRSpeak zdsrSpeak;
-  ZDSRStopSpeak zdsrStopSpeak;
+  InitTTS zdsrInitTTS;
+  GetSpeakState zdsrGetSpeakState;
+  Speak zdsrSpeak;
+  StopSpeak zdsrStopSpeak;
 };
 
 #endif // _SCREEN_READER_DRIVER_ZDSR_H_
