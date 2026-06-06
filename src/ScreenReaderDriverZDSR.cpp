@@ -18,17 +18,20 @@ ScreenReaderDriverZDSR::ScreenReaderDriverZDSR() :
   #else
   controller(LoadLibrary(L"ZDSRAPI.dll")),
   #endif
+  zdsrInitTTS(nullptr),
+  zdsrGetSpeakState(nullptr),
   zdsrSpeak(nullptr),
   zdsrStopSpeak(nullptr),
-  zdsrInitTTS(nullptr),
-  zdsrGetSpeakState(nullptr)
+  zdsrBraille(nullptr)
 {
   if (controller) {
     zdsrInitTTS = (InitTTS)GetProcAddress(controller, "InitTTS");
     zdsrGetSpeakState = (GetSpeakState)GetProcAddress(controller, "GetSpeakState");
     zdsrSpeak = (Speak)GetProcAddress(controller, "Speak");
     zdsrStopSpeak = (StopSpeak)GetProcAddress(controller, "StopSpeak");
-    if (zdsrInitTTS) zdsrInitTTS(0, nullptr, true);
+    zdsrBraille = (Braille)GetProcAddress(controller, "Braille");
+
+    if (zdsrInitTTS) zdsrInitTTS(0, nullptr, TRUE);
   }
 }
 
@@ -42,6 +45,7 @@ bool ScreenReaderDriverZDSR::Speak(const wchar_t *str, bool interrupt) {
 }
 
 bool ScreenReaderDriverZDSR::Braille(const wchar_t *str) {
+  if (zdsrBraille) return (zdsrBraille(str, FALSE) == 0);
   return false;
 }
 
@@ -59,7 +63,10 @@ bool ScreenReaderDriverZDSR::IsSpeaking() {
 }
 
 bool ScreenReaderDriverZDSR::IsActive() {
-  if (zdsrGetSpeakState) return (zdsrGetSpeakState() >= 3);
+  if (zdsrGetSpeakState) {
+    int state = zdsrGetSpeakState();
+    return (state != 1 && state != 2);
+  }
   return false;
 }
 
