@@ -26,7 +26,7 @@ static bool g_isLoaded = false;
 static std::vector<std::unique_ptr<ScreenReaderDriver>> g_screenReaderDrivers;
 static std::unique_ptr<ScreenReaderDriverSAPI> g_sapi;
 static ScreenReaderDriver *g_currentScreenReaderDriver = nullptr;
-static bool g_trySAPI = false;
+static bool g_trySAPI = true;
 static bool g_preferSAPI = false;
 
 BOOL WINAPI DllMain(HINSTANCE, DWORD reason, LPVOID) {

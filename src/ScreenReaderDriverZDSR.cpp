@@ -12,7 +12,7 @@
 #include "ScreenReaderDriverZDSR.h"
 
 ScreenReaderDriverZDSR::ScreenReaderDriverZDSR() :
-  ScreenReaderDriver(L"ZDSR", true, false),
+  ScreenReaderDriver(L"ZDSR", true, true),
   #ifdef _WIN64
   controller(LoadLibrary(L"ZDSRAPI_x64.dll")),
   #else
@@ -75,4 +75,3 @@ bool ScreenReaderDriverZDSR::Output(const wchar_t *str, bool interrupt) {
   const bool braille = Braille(str);
   return (speak || braille);
 }
-

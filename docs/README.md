@@ -55,7 +55,7 @@ For synchronization, `Tolk_IsSpeaking` returns whether or not the active screen 
 
 Tolk can output text through Microsoft SAPI. This is mostly meant as a fallback mechanism. To do this, Tolk has a screen reader driver that uses SAPI 5.3. Therefore, the functionality is limited to what screen reader drivers provide. Applications that need more control should use SAPI directly. Another consequence is that there is no way to explicitly tell Tolk to use SAPI, the driver is part of the auto-detection chain.
 
-By default, support for SAPI is disabled. To change this, use `Tolk_TrySAPI`, passing `true` to enable SAPI or `false` to disable it. The required driver will automatically be (un)loaded.
+By default, support for SAPI is enabled. To change this, use `Tolk_TrySAPI`, passing `true` to enable SAPI or `false` to disable it. The required driver will automatically be (un)loaded.
 SAPI is initially put at the end of the auto-detection chain. This is good for using it as a fallback option when none of the supported screen readers is running. It is also possible to have Tolk prefer SAPI over the other screen reader drivers. This is good for basic SAPI output where screen readers are only tried if SAPI fails or if SAPI 5.3 or later is unavailable. To change the preference for SAPI, use `Tolk_PreferSAPI`. This also takes a boolean parameter, `true` to prefer SAPI or `false` to prefer the traditional screen readers.
 The most efficient way of enabling SAPI support is to set it up before calling `Tolk_Load`. However, you can also call these functions after Tolk has already been loaded. This will trigger the screen reader detection process and is therefore slightly less efficient.
 
@@ -80,7 +80,7 @@ Take a look at the `examples` directory to get started. This directory contains 
 The following table lists the supported screen readers in the order in which they are auto-detected.
 
     Screen Reader   Speech   Braille   Status   x86   x64
-    ZDSR            Yes      NO       YES       Yes   Yes
+    ZDSR            Yes      YES       YES       Yes   Yes
     BoyPCReader            Yes      NO       YES       Yes   Yes
     JAWS            Yes      Yes       No       Yes   Yes
     NVDA            Yes      Yes       No       Yes   Yes
