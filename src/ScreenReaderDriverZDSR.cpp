@@ -25,11 +25,11 @@ ScreenReaderDriverZDSR::ScreenReaderDriverZDSR() :
   zdsrBraille(nullptr)
 {
   if (controller) {
-    zdsrInitTTS = (InitTTS)GetProcAddress(controller, "InitTTS");
-    zdsrGetSpeakState = (GetSpeakState)GetProcAddress(controller, "GetSpeakState");
-    zdsrSpeak = (Speak)GetProcAddress(controller, "Speak");
-    zdsrStopSpeak = (StopSpeak)GetProcAddress(controller, "StopSpeak");
-    zdsrBraille = (Braille)GetProcAddress(controller, "Braille");
+    zdsrInitTTS      = (ZDSR_InitTTS)GetProcAddress(controller, "InitTTS");
+    zdsrGetSpeakState= (ZDSR_GetSpeakState)GetProcAddress(controller, "GetSpeakState");
+    zdsrSpeak        = (ZDSR_Speak)GetProcAddress(controller, "Speak");
+    zdsrStopSpeak    = (ZDSR_StopSpeak)GetProcAddress(controller, "StopSpeak");
+    zdsrBraille      = (ZDSR_Braille)GetProcAddress(controller, "Braille");
 
     if (zdsrInitTTS) zdsrInitTTS(0, nullptr, TRUE);
   }
@@ -75,3 +75,4 @@ bool ScreenReaderDriverZDSR::Output(const wchar_t *str, bool interrupt) {
   const bool braille = Braille(str);
   return (speak || braille);
 }
+
