@@ -24,11 +24,11 @@ ScreenReaderDriverZDSR::ScreenReaderDriverZDSR() :
   zdsrGetSpeakState(nullptr)
 {
   if (controller) {
-    zdsrInitTTS = (ZDSRInitTTS)GetProcAddress(controller, "InitTTS");
-    zdsrGetSpeakState = (ZDSRGetSpeakState)GetProcAddress(controller, "GetSpeakState");
-    zdsrSpeak = (ZDSRSpeak)GetProcAddress(controller, "Speak");
-    zdsrStopSpeak = (ZDSRStopSpeak)GetProcAddress(controller, "StopSpeak");
-    if (zdsrInitTTS) zdsrInitTTS(1, nullptr, true);
+    zdsrInitTTS = (InitTTS)GetProcAddress(controller, "InitTTS");
+    zdsrGetSpeakState = (GetSpeakState)GetProcAddress(controller, "GetSpeakState");
+    zdsrSpeak = (Speak)GetProcAddress(controller, "Speak");
+    zdsrStopSpeak = (StopSpeak)GetProcAddress(controller, "StopSpeak");
+    if (zdsrInitTTS) zdsrInitTTS(0, nullptr, true);
   }
 }
 
