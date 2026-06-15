@@ -65,7 +65,7 @@ bool ScreenReaderDriverZDSR::IsSpeaking() {
 bool ScreenReaderDriverZDSR::IsActive() {
   if (zdsrGetSpeakState) {
     int state = zdsrGetSpeakState();
-    return (state != 1 && state != 2);
+    return (state >= 3);
   }
   return false;
 }
