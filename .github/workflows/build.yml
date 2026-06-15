@@ -62,19 +62,21 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: tolk-dotnet
-          path: build\src\dotnet\*
+          path: build\src\dotnet\TolkDotNet.dll
       - name: Upload Java Archive
         if: matrix.arch == 'x64' && matrix.config == 'Release'
         uses: actions/upload-artifact@v7
         with:
           name: tolk-java
-          path: build\src\java\*
+          path: |
+            build\src\java\Tolk.jar
+            build\src\java\classes\**
       - name: Upload Documentation
         if: matrix.arch == 'x64' && matrix.config == 'Release'
         uses: actions/upload-artifact@v7
         with:
           name: tolk-docs
-          path: build\docs\*
+          path: build\docs\README.html
   package:
     name: Create Release Package
     needs: build
