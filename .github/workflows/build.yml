@@ -43,8 +43,13 @@ jobs:
         shell: cmd
         run: |
           mkdir staging
-          copy build\src\${{ matrix.config }}\* staging\
-          copy libs\${{ matrix.arch }}\* staging\
+          :: Use CMake-generated dist directory (clean, no junk files)
+          copy build\dist\${{ matrix.arch }}-${{ matrix.config }}\Tolk.dll staging\
+          copy build\dist\${{ matrix.arch }}-${{ matrix.config }}\Tolk.lib staging\
+          :: Copy PDB debug symbols for Debug builds
+          if "${{ matrix.config }}"=="Debug" copy build\src\${{ matrix.config }}\Tolk.pdb staging\
+          :: Copy only DLL dependencies (exclude txt, ini, etc.)
+          copy libs\${{ matrix.arch }}\*.dll staging\
       - name: Upload Architecture Artifact (${{ matrix.config }})
         uses: actions/upload-artifact@v7
         with:
