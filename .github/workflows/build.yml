@@ -135,22 +135,23 @@ jobs:
         id: release_info
         run: |
           echo "TITLE=Tolk-${{ github.sha }}" >> $env:GITHUB_ENV
-          echo "BODY=Commit Hash: ${{ github.sha }} Target Branch: ${{ github.ref_name }}" >> $env:GITHUB_ENV
-          echo "" >> $env:GITHUB_ENV
-          echo "## Build Artifacts Included:" >> $env:GITHUB_ENV
-          echo "- x86 Debug (with file logging + console output)" >> $env:GITHUB_ENV
-          echo "- x86 Release" >> $env:GITHUB_ENV
-          echo "- x64 Debug (with file logging + console output)" >> $env:GITHUB_ENV
-          echo "- x64 Release" >> $env:GITHUB_ENV
-          echo "- .NET Wrapper" >> $env:GITHUB_ENV
-          echo "- Java JAR" >> $env:GITHUB_ENV
-          echo "- Documentation" >> $env:GITHUB_ENV
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: release-build
           name: ${{ env.TITLE }}
-          body: ${{ env.BODY }}
+          body: |
+            Commit Hash: ${{ github.sha }}
+            Target Branch: ${{ github.ref_name }}
+
+            **Build Artifacts Included:**
+            - x86 Debug (with file logging + console output)
+            - x86 Release
+            - x64 Debug (with file logging + console output)
+            - x64 Release
+            - .NET Wrapper
+            - Java JAR
+            - Documentation
           files: tolk.zip
           draft: false
           prerelease: false
