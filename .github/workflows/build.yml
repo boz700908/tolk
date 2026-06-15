@@ -97,9 +97,15 @@ jobs:
           xcopy /E /Y artifacts\tolk-x86-Release\* dist\x86\Release\
           xcopy /E /Y artifacts\tolk-x64-Debug\* dist\x64\Debug\
           xcopy /E /Y artifacts\tolk-x64-Release\* dist\x64\Release\
-          xcopy /E /Y artifacts\tolk-dotnet\* dist\
-          xcopy /E /Y artifacts\tolk-java\* dist\
-          xcopy /E /Y artifacts\tolk-docs\* dist\
+          :: .NET Wrapper - separate directory
+          mkdir dist\dotnet
+          xcopy /E /Y artifacts\tolk-dotnet\* dist\dotnet\
+          :: Java Wrapper - separate directory
+          mkdir dist\java
+          xcopy /E /Y artifacts\tolk-java\* dist\java\
+          :: Documentation - separate directory
+          mkdir dist\docs
+          xcopy /E /Y artifacts\tolk-docs\* dist\docs\
           copy LICENSE* dist\
       - name: Create README for Debug Build
         shell: cmd
