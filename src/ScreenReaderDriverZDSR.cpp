@@ -31,7 +31,7 @@ ScreenReaderDriverZDSR::ScreenReaderDriverZDSR() :
     zdsrStopSpeak    = (ZDSR_StopSpeak)GetProcAddress(controller, "StopSpeak");
     zdsrBraille      = (ZDSR_Braille)GetProcAddress(controller, "Braille");
 
-    if (zdsrInitTTS) zdsrInitTTS(0, nullptr, TRUE);
+    if (zdsrInitTTS) zdsrInitTTS(0, null, TRUE);
   }
 }
 
