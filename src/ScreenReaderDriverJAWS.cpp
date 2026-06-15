@@ -5,21 +5,26 @@
  *  Copyright:      (c) 2014, Davy Kager <mail@davykager.nl>
  *  License:        LGPLv3
  */
-
 #include <string>
 #include "ScreenReaderDriverJAWS.h"
-
+#include "TolkDebug.h"
 ScreenReaderDriverJAWS::ScreenReaderDriverJAWS() :
   ScreenReaderDriver(L"JAWS", true, true),
   controller(nullptr)
 {
-  if (IsRunning()) Initialize();
+  TOLK_LOG_INFO("JAWS: Initializing driver");
+  if (IsRunning()) {
+    TOLK_LOG_INFO("JAWS: JAWS is running, creating COM instance");
+    Initialize();
+  }
+  else {
+    TOLK_LOG_WARN("JAWS: JAWS not running, driver disabled");
+  }
 }
-
 ScreenReaderDriverJAWS::~ScreenReaderDriverJAWS() {
+  TOLK_LOG_INFO("JAWS: Finalizing driver");
   Finalize();
 }
-
 bool ScreenReaderDriverJAWS::Speak(const wchar_t *str, bool interrupt) {
   if (!controller) return false;
   const BSTR bstr = SysAllocString(str);
@@ -30,7 +35,6 @@ bool ScreenReaderDriverJAWS::Speak(const wchar_t *str, bool interrupt) {
   SysFreeString(bstr);
   return (succeeded && result == VARIANT_TRUE);
 }
-
 bool ScreenReaderDriverJAWS::Braille(const wchar_t *str) {
   if (!controller) return false;
   std::wstring wstr(str);
@@ -48,12 +52,10 @@ bool ScreenReaderDriverJAWS::Braille(const wchar_t *str) {
   SysFreeString(bstr);
   return (succeeded && result == VARIANT_TRUE);
 }
-
 bool ScreenReaderDriverJAWS::Silence() {
   if (!controller) return false;
   return SUCCEEDED(controller->StopSpeech());
 }
-
 bool ScreenReaderDriverJAWS::IsActive() {
   if (!IsRunning()) {
     Finalize();
@@ -62,24 +64,22 @@ bool ScreenReaderDriverJAWS::IsActive() {
   if (!controller) Initialize();
   return (!!controller);
 }
-
 bool ScreenReaderDriverJAWS::Output(const wchar_t *str, bool interrupt) {
   // Beware short-circuiting.
   const bool speak = Speak(str, interrupt);
   const bool braille = Braille(str);
   return (speak || braille);
 }
-
 void ScreenReaderDriverJAWS::Initialize() {
   if (controller || FAILED(CoCreateInstance(CLSID_JawsApi, nullptr, CLSCTX_INPROC_SERVER, IID_IJawsApi, (void **)&controller))) {
-    // This is here for symmetry with other drivers
-    // and so compiling /analyze won't throw a warning.
+    TOLK_LOG_WARN("JAWS: CoCreateInstance failed");
     return;
   }
+  TOLK_LOG_INFO("JAWS: COM instance created successfully");
 }
-
 void ScreenReaderDriverJAWS::Finalize() {
   if (controller) {
+    TOLK_LOG_INFO("JAWS: Releasing COM instance");
     controller->Release();
     controller = nullptr;
   }

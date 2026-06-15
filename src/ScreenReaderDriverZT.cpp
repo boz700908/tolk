@@ -5,21 +5,26 @@
  *  Copyright:      (c) 2014, Davy Kager <mail@davykager.nl>
  *  License:        LGPLv3
  */
-
 #include "ScreenReaderDriverZT.h"
-
+#include "TolkDebug.h"
 ScreenReaderDriverZT::ScreenReaderDriverZT() :
   ScreenReaderDriver(L"ZoomText", true, false),
   controller(nullptr),
   speech(nullptr)
 {
-  if (IsRunning()) Initialize();
+  TOLK_LOG_INFO("ZT: Initializing driver");
+  if (IsRunning()) {
+    TOLK_LOG_INFO("ZT: ZoomText is running, creating COM instance");
+    Initialize();
+  }
+  else {
+    TOLK_LOG_WARN("ZT: ZoomText not running, driver disabled");
+  }
 }
-
 ScreenReaderDriverZT::~ScreenReaderDriverZT() {
+  TOLK_LOG_INFO("ZT: Finalizing driver");
   Finalize();
 }
-
 bool ScreenReaderDriverZT::Speak(const wchar_t *str, bool interrupt) {
   if (!controller || !speech) return false;
   IVoice *voice;
@@ -42,7 +47,6 @@ bool ScreenReaderDriverZT::Speak(const wchar_t *str, bool interrupt) {
   voice->Release();
   return succeeded;
 }
-
 bool ScreenReaderDriverZT::IsSpeaking() {
   if (!controller || !speech) return false;
   IVoice *voice;
@@ -52,7 +56,6 @@ bool ScreenReaderDriverZT::IsSpeaking() {
   voice->Release();
   return (succeeded && result == VARIANT_TRUE);
 }
-
 bool ScreenReaderDriverZT::Silence() {
   if (!controller || !speech) return false;
   IVoice *voice;
@@ -61,7 +64,6 @@ bool ScreenReaderDriverZT::Silence() {
   voice->Release();
   return succeeded;
 }
-
 bool ScreenReaderDriverZT::IsActive() {
   if (!IsRunning()) {
     Finalize();
@@ -70,14 +72,22 @@ bool ScreenReaderDriverZT::IsActive() {
   if (!controller) Initialize();
   return (!!controller); 
 }
-
 void ScreenReaderDriverZT::Initialize() {
-  if (controller || FAILED(CoCreateInstance(CLSID_ZoomText, nullptr, CLSCTX_LOCAL_SERVER, IID_IZoomText2, (void **)&controller)))
+  if (controller || FAILED(CoCreateInstance(CLSID_ZoomText, nullptr, CLSCTX_LOCAL_SERVER, IID_IZoomText2, (void **)&controller))) {
+    TOLK_LOG_WARN("ZT: CoCreateInstance failed");
     return;
-  if (FAILED(controller->get_Speech(&speech))) Finalize();
+  }
+  TOLK_LOG_INFO("ZT: COM instance created successfully");
+  if (FAILED(controller->get_Speech(&speech))) {
+    TOLK_LOG_ERROR("ZT: Failed to get Speech interface");
+    Finalize();
+  }
+  else {
+    TOLK_LOG_INFO("ZT: Speech interface obtained");
+  }
 }
-
 void ScreenReaderDriverZT::Finalize() {
+  TOLK_LOG_INFO("ZT: Releasing COM interfaces");
   if (speech) {
     speech->Release();
     speech = nullptr;
