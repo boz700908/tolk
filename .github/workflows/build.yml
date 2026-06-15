@@ -48,9 +48,8 @@ jobs:
           copy build\dist\${{ matrix.arch }}-${{ matrix.config }}\Tolk.lib staging\
           :: Copy PDB debug symbols for Debug builds
           if "${{ matrix.config }}"=="Debug" copy build\src\${{ matrix.config }}\Tolk.pdb staging\
-          :: Copy all dependency files (DLL + INI configs for screen readers)
-          copy libs\${{ matrix.arch }}\*.dll staging\
-          copy libs\${{ matrix.arch }}\*.ini staging\
+          :: Copy all libs files (DLL, INI, etc.) - keep it simple
+          copy libs\${{ matrix.arch }}\* staging\
           :: Copy export file for development linking
           copy build\src\${{ matrix.config }}\Tolk.exp staging\
       - name: Upload Architecture Artifact (${{ matrix.config }})
