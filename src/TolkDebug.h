@@ -95,9 +95,9 @@ inline void Tolk_Log(int level, const char* file, int line, const char* format, 
             // No console attached - use OutputDebugString already done above
         }
     }
-    // 2. File output to Tolk_Debug.log in process working directory
+    // 2. File output to Tolk_Debug.log in process working directory (UTF-8)
     FILE* logFile = NULL;
-    if (_tfopen_s(&logFile, _T("Tolk_Debug.log"), _T("a, ccs=UTF-8")) == 0 && logFile) {
+    if (fopen_s(&logFile, "Tolk_Debug.log", "a, ccs=UTF-8") == 0 && logFile) {
         fprintf(logFile, "%s", fullMessage);
         fclose(logFile);
     }
