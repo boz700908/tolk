@@ -46,16 +46,18 @@ The wrappers cover all functions and use the language's native types where possi
 Take a look at the `examples` directory to get started. This directory contains console applications in the supported languages that demonstrate the basic usage. Note that Microsoft SAPI will stop speaking when your application closes, which means that it will not work with these console applications because they return immediately after queueing text. Add a short delay (sleep) to work around this if you want to try SAPI.
 ## Supported screen readers
 The following table lists the supported screen readers in the order in which they are auto-detected.
-    Screen Reader   Speech   Braille   Status   x86   x64
-    NVDA            Yes      Yes       No       Yes   Yes
-    JAWS            Yes      Yes       No       Yes   Yes
-    Window-Eyes     Yes      Yes       No       Yes   Yes
-    System Access   Yes      Yes       No       Yes   Yes
-    SuperNova       Yes      No        No       Yes   No
-    ZoomText        Yes      No        Yes      Yes   Yes
-    ZDSR            Yes      YES       YES       Yes   Yes
-    BoyPCReader            Yes      NO       YES       Yes   Yes
-    SAPI            Yes      No        Yes      Yes   Yes
+    Screen Reader   Speech   Braille   Status   x86   x64   ARM64
+    NVDA            Yes      Yes       No       Yes   Yes   Yes
+    JAWS            Yes      Yes       No       Yes   Yes   No
+    Window-Eyes     Yes      Yes       No       Yes   Yes   No
+    System Access   Yes      Yes       No       Yes   Yes   No
+    SuperNova       Yes      No        No       Yes   No    No
+    ZoomText        Yes      No        Yes      Yes   Yes   No
+    ZDSR            Yes      Yes       Yes      Yes   Yes   No
+    BoyPCReader     Yes      No        Yes      Yes   Yes   No
+    SAPI            Yes      No        Yes      Yes   Yes   Partial*
+
+*SAPI on ARM64 runs via x64 emulation on Windows 11
 ### Notes
 * SuperNova is the only screen reader that does not have a 64-bit compatible API.
 * SuperNova has support for braille, but the API does not let you use it.
@@ -74,19 +76,22 @@ If you want to compile Tolk yourself, here's what you need to build the whole th
 The root directory and `examples` directories contain various batch files as a starting point. They assume the required tools are in your `PATH` and that the JDK include directory is in `INCLUDE`. For the examples you will also need to copy over any dependency files.
 ### Build Script Usage
 ```cmd
-build.bat          # Build both Debug and Release (x86 + x64)
-build.bat debug    # Build Debug only (x86 + x64)
-build.bat release  # Build Release only (x86 + x64)
+build.bat          # Build both Debug and Release (x86 + x64 + ARM64)
+build.bat debug    # Build Debug only (x86 + x64 + ARM64)
+build.bat release  # Build Release only (x86 + x64 + ARM64)
 ```
 ### Output Directory Structure
 ```
 dist/
 ├── x86/
-│   ├── Debug/      # 32-bit Debug DLL (with logging)
-│   └── Release/    # 32-bit Release DLL
-└── x64/
-    ├── Debug/      # 64-bit Debug DLL (with logging)
-    └── Release/    # 64-bit Release DLL
+│   ├── Debug/      # 32-bit x86 Debug DLL
+│   └── Release/    # 32-bit x86 Release DLL
+├── x64/
+│   ├── Debug/      # 64-bit x64 Debug DLL
+│   └── Release/    # 64-bit x64 Release DLL
+└── arm64/
+    ├── Debug/      # ARM64 Debug DLL (NVDA only)
+    └── Release/    # ARM64 Release DLL (NVDA only)
 ```
 ## Debugging and Logging
 Tolk includes a unified logging system that helps with debugging and troubleshooting.
