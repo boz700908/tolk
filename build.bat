@@ -10,16 +10,16 @@ echo.
 :: Helper 1: Chocolatey install/upgrade with retry mechanism
 :: ============================================
 :CHOCO_INSTALL
-set PACKAGE_NAME=%1
+setlocal
 set RETRY_COUNT=0
 set MAX_RETRIES=3
 
 :CHOCO_LOOP_START
-choco install %PACKAGE_NAME% -y >nul 2>&1
-if %errorlevel% equ 0 exit /b 0
+choco install %* -y >nul 2>&1
+if %errorlevel% equ 0 endlocal & exit /b 0
 
 set /a RETRY_COUNT+=1
-if %RETRY_COUNT% geq %MAX_RETRIES% exit /b 1
+if %RETRY_COUNT% geq %MAX_RETRIES% endlocal & exit /b 1
 
 echo   Retry %RETRY_COUNT%/%MAX_RETRIES%...
 timeout /t 2 /nobreak >nul
@@ -31,6 +31,7 @@ goto CHOCO_LOOP_START
 :: Returns: errorlevel 0 = meets requirement, 1 = does not meet
 :: ============================================
 :VERSION_COMPARE
+setlocal
 set CURRENT_VER=%~1
 set REQUIRED_VER=%~2
 
@@ -61,19 +62,19 @@ if "%CUR_MAJOR%"=="1" if not "%CUR_MINOR%"=="" (
     set CUR_PATCH=0
 )
 
-:: Major version comparison
-if %CUR_MAJOR% gtr %REQ_MAJOR% exit /b 0
-if %CUR_MAJOR% lss %REQ_MAJOR% exit /b 1
+:: Major version comparison with quote protection
+if "%CUR_MAJOR%" gtr "%REQ_MAJOR%" endlocal & exit /b 0
+if "%CUR_MAJOR%" lss "%REQ_MAJOR%" endlocal & exit /b 1
 
-:: Minor version comparison
-if %CUR_MINOR% gtr %REQ_MINOR% exit /b 0
-if %CUR_MINOR% lss %REQ_MINOR% exit /b 1
+:: Minor version comparison with quote protection
+if "%CUR_MINOR%" gtr "%REQ_MINOR%" endlocal & exit /b 0
+if "%CUR_MINOR%" lss "%REQ_MINOR%" endlocal & exit /b 1
 
-:: Patch version comparison
-if %CUR_PATCH% geq %REQ_PATCH% (
-    exit /b 0
+:: Patch version comparison with quote protection
+if "%CUR_PATCH%" geq "%REQ_PATCH%" (
+    endlocal & exit /b 0
 ) else (
-    exit /b 1
+    endlocal & exit /b 1
 )
 
 :: ============================================
@@ -81,6 +82,7 @@ if %CUR_PATCH% geq %REQ_PATCH% (
 :: Usage: call :CHECK_TOOL "tool_name" "check_command" "min_version" "choco_pkg" "is_required"
 :: ============================================
 :CHECK_TOOL
+setlocal
 set TOOL_NAME=%~1
 set CHECK_CMD=%~2
 set MIN_VERSION=%~3
@@ -98,12 +100,12 @@ if %errorlevel% neq 0 (
     ) else (
         if "%IS_REQUIRED%"=="1" (
             echo ERROR: %TOOL_NAME% installation failed.
-            exit /b 1
+            endlocal & exit /b 1
         ) else (
             echo WARNING: %TOOL_NAME% installation failed, skipping.
         )
     )
-    exit /b 0
+    endlocal & exit /b 0
 )
 
 :: Extract version number
@@ -128,7 +130,7 @@ if %errorlevel% equ 1 (
 ) else (
     echo [%STEP%/7] %TOOL_NAME% %DETECTED_VERSION% (>= %MIN_VERSION%) - OK
 )
-exit /b 0
+endlocal & exit /b 0
 
 :: ============================================
 :: Step 1: Auto-install Chocolatey (Windows package manager)
@@ -357,10 +359,7 @@ if %errorlevel% neq 0 (
 echo.
 echo [7/11] Configuring ARM64...
 cmake -B build-arm64 -A ARM64
-if %errorlevel% neq 0 (
-    echo WARNING: ARM64 toolchain not available, skipping ARM64 build.
-    goto skip_arm64
-)
+if %errorlevel% neq 0 echo WARNING: ARM64 toolchain not available, skipping ARM64 build. & goto skip_arm64
 
 if %BUILD_DEBUG%==1 (
 echo.
