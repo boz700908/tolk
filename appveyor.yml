@@ -4,6 +4,10 @@ version: 1.0.{build}
 # 使用Visual Studio 2022镜像（适配CMake + MSVC构建）
 image: Visual Studio 2022
 
+# 安装依赖：Pandoc（用于文档构建）
+install:
+  - choco install pandoc -y
+
 # 构建脚本：直接调用项目自带的build.bat
 build_script:
   - cmd: build.bat
