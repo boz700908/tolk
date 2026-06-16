@@ -36,14 +36,6 @@ add_custom_command(
 
 add_custom_target(TolkJar ALL DEPENDS ${JAR_OUTPUT})
 
-# Copy Java wrapper to dist directory
-add_custom_command(TARGET TolkJar POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E make_directory
-    "$<$<CONFIG:Debug>:${CMAKE_BINARY_DIR}/dist/${TOLK_ARCH}-Debug>$<$<CONFIG:Release>:${CMAKE_BINARY_DIR}/dist/${TOLK_ARCH}-Release>/java"
-  COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    ${JAR_OUTPUT}
-    "$<$<CONFIG:Debug>:${CMAKE_BINARY_DIR}/dist/${TOLK_ARCH}-Debug>$<$<CONFIG:Release>:${CMAKE_BINARY_DIR}/dist/${TOLK_ARCH}-Release>/java/"
-  COMMENT "Copying Java wrapper to dist/${TOLK_ARCH}-$<CONFIG>/java"
-)
-
+# Note: Java wrapper is copied once to wrappers/java/ via GitHub Actions
+# No per-architecture copy needed - wrappers are shared across all architectures
 install(FILES ${JAR_OUTPUT} DESTINATION bin OPTIONAL)
