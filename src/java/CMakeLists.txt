@@ -9,14 +9,16 @@ set(JAVA_CLASS_DIR "${CMAKE_CURRENT_BINARY_DIR}/classes")
 set(JAR_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/Tolk.jar")
 
 # Java 8 compatibility mode (system requirements unchanged)
-# -source 8 -target 8 ensures bytecode works on Java 8 and above
-# Modern Java features (lambda, method references, etc.) are fully available
+# --release 8: Proper cross-compilation (Java 9+ standard)
+# - Automatically sets correct bootstrap classpath
+# - Ensures only Java 8 APIs are used
+# - No warnings, bytecode fully compatible with Java 8+
 add_custom_command(
   OUTPUT ${JAVA_CLASS_DIR}/com/davykager/tolk/Tolk.class
   COMMAND ${CMAKE_COMMAND} -E make_directory ${JAVA_CLASS_DIR}
   COMMAND ${Java_JAVAC_EXECUTABLE}
-    -source 8 -target 8
-    -Xlint:all -Xlint:-options
+    --release 8
+    -Xlint:all
     -g:none -O
     -d ${JAVA_CLASS_DIR}
     ${JAVA_SOURCE}
