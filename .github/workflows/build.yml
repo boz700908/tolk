@@ -53,13 +53,10 @@ jobs:
         shell: cmd
         run: |
           mkdir staging
-          :: Use CMake-generated dist directory (clean, no junk files)
-          copy build\dist\${{ matrix.arch }}-${{ matrix.config }}\Tolk.dll staging\
-          copy build\dist\${{ matrix.arch }}-${{ matrix.config }}\Tolk.lib staging\
+          :: Copy ALL files from CMake-generated dist directory (includes DLLs, LIBs, drivers, wrappers)
+          xcopy /E /Y build\dist\${{ matrix.arch }}-${{ matrix.config }}\* staging\
           :: Copy PDB debug symbols for Debug builds
           if "${{ matrix.config }}"=="Debug" copy build\src\${{ matrix.config }}\Tolk.pdb staging\
-          :: Copy all libs files (DLL, INI, etc.) - keep it simple
-          copy libs\${{ matrix.arch }}\* staging\
           :: Copy export file for development linking
           copy build\src\${{ matrix.config }}\Tolk.exp staging\
       - name: Upload Architecture Artifact (${{ matrix.config }})
