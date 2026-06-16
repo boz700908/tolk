@@ -39,10 +39,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Setup .NET SDK (Roslyn C# compiler for modern C# features)
+      - name: Setup .NET SDK (for dotnet build)
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+      - name: Restore .NET Dependencies
+        run: dotnet restore src/dotnet/TolkDotNet.csproj
       - name: Setup Pandoc
         uses: pandoc/actions/setup@v1
       - name: Configure CMake Project
@@ -69,7 +71,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: tolk-dotnet
-          path: build\src\dotnet\TolkDotNet.dll
+          path: build\src\dotnet\publish\TolkDotNet.dll
       - name: Upload Java Archive
         if: matrix.arch == 'x64' && matrix.config == 'Release'
         uses: actions/upload-artifact@v7

@@ -1,29 +1,34 @@
-# Simple C# compiler search
-# .NET SDK is installed via GitHub Actions setup-dotnet, csc.exe is in PATH
-find_program(CSC csc DOC "C# compiler")
+# Modern .NET build using dotnet CLI
+# .NET SDK is installed via GitHub Actions setup-dotnet
 
-if(NOT CSC)
-  message(WARNING "C# compiler (csc) not found, skipping .NET wrapper build")
+find_program(DOTNET dotnet DOC ".NET CLI")
+if(NOT DOTNET)
+  message(WARNING ".NET CLI (dotnet) not found, skipping .NET wrapper build")
   return()
 endif()
 
-message(STATUS "Found C# compiler: ${CSC}")
+message(STATUS "Found .NET CLI: ${DOTNET}")
 
-set(DOTNET_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/Tolk.cs")
-set(DOTNET_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/TolkDotNet.dll")
+set(DOTNET_PROJECT "${CMAKE_CURRENT_SOURCE_DIR}/TolkDotNet.csproj")
+set(DOTNET_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/publish")
+set(DOTNET_OUTPUT "${DOTNET_OUTPUT_DIR}/TolkDotNet.dll")
 
+# Build .NET wrapper using dotnet build
 add_custom_command(
   OUTPUT ${DOTNET_OUTPUT}
-  COMMAND ${CSC} /nologo /optimize /target:library /warn:4
-    "/out:${DOTNET_OUTPUT}" "${DOTNET_SOURCE}"
-  DEPENDS ${DOTNET_SOURCE}
-  COMMENT "Building .NET wrapper (TolkDotNet.dll)"
+  COMMAND ${DOTNET} build ${DOTNET_PROJECT}
+    --configuration Release
+    --no-restore
+    --output "${DOTNET_OUTPUT_DIR}"
+    -p:TargetFramework=netstandard2.0
+  DEPENDS ${DOTNET_PROJECT} "${CMAKE_CURRENT_SOURCE_DIR}/Tolk.cs"
+  COMMENT "Building .NET wrapper (TolkDotNet.dll) using dotnet build"
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 add_custom_target(TolkDotNet ALL DEPENDS ${DOTNET_OUTPUT})
 
-# Copy .NET wrapper to dist dotnet directory
+# Copy .NET wrapper to dist directory
 add_custom_command(TARGET TolkDotNet POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E make_directory
     "$<$<CONFIG:Debug>:${CMAKE_BINARY_DIR}/dist/${TOLK_ARCH}-Debug>$<$<CONFIG:Release>:${CMAKE_BINARY_DIR}/dist/${TOLK_ARCH}-Release>/dotnet"
