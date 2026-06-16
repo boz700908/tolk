@@ -1,26 +1,26 @@
 ---
 version: 1.0.{build}
-
 # 使用Visual Studio 2022镜像（适配CMake + MSVC构建）
 image: Visual Studio 2022
-
-# 安装依赖：Pandoc（用于文档构建）
+# 安装依赖：强制Java 17 + Pandoc + NuGet restore
 install:
+  # 强制安装Java 17（覆盖镜像预装的Java 8，解决--release参数不识别问题）
+  - choco install microsoft-openjdk-17 -y
+  # 安装Pandoc（用于文档构建）
   - choco install pandoc -y
-  - refreshenv  # 刷新环境变量，确保Pandoc路径生效
-
+  # 刷新环境变量
+  - refreshenv
+  # 执行.NET NuGet restore（解决project.assets.json找不到的问题）
+  - dotnet restore src/dotnet/TolkDotNet.csproj
 # 构建脚本：直接调用项目自带的build.bat
 build_script:
   - cmd: build.bat
-
 # 构建产物归档
 artifacts:
   - path: dist
     name: Tolk-Build-Output
-
 # 关闭自动测试
 test: false
-
 # 缓存构建目录加速后续构建
 cache:
   - build-x86
