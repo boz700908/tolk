@@ -7,36 +7,34 @@ echo [Preflight] Checking and installing required build tools...
 echo.
 
 :: ============================================
-:: Helper 1: 带重试机制的Chocolatey安装/升级函数
+:: Helper 1: Chocolatey install/upgrade with retry mechanism
 :: ============================================
 :CHOCO_INSTALL
 set PACKAGE_NAME=%1
 set RETRY_COUNT=0
 set MAX_RETRIES=3
 
-:CHOCO_RETRY
+:CHOCO_LOOP_START
 choco install %PACKAGE_NAME% -y >nul 2>&1
-if %errorlevel% equ 0 (
-    exit /b 0
-)
+if %errorlevel% equ 0 exit /b 0
+
 set /a RETRY_COUNT+=1
-if %RETRY_COUNT% lss %MAX_RETRIES% (
-    echo   Retry %RETRY_COUNT%/%MAX_RETRIES%...
-    timeout /t 2 /nobreak >nul
-    goto CHOCO_RETRY
-)
-exit /b 1
+if %RETRY_COUNT% geq %MAX_RETRIES% exit /b 1
+
+echo   Retry %RETRY_COUNT%/%MAX_RETRIES%...
+timeout /t 2 /nobreak >nul
+goto CHOCO_LOOP_START
 
 :: ============================================
-:: Helper 2: 版本号比较函数
-:: 用法: call :VERSION_COMPARE "当前版本" "最低要求版本"
-:: 返回: errorlevel 0 = 满足要求, 1 = 不满足
+:: Helper 2: Version comparison function
+:: Usage: call :VERSION_COMPARE "current_version" "minimum_required"
+:: Returns: errorlevel 0 = meets requirement, 1 = does not meet
 :: ============================================
 :VERSION_COMPARE
 set CURRENT_VER=%~1
 set REQUIRED_VER=%~2
 
-:: 分割版本号为数组
+:: Split version string into components
 for /f "tokens=1,2,3 delims=." %%a in ("%CURRENT_VER%") do (
     set CUR_MAJOR=%%a
     set CUR_MINOR=%%b
@@ -48,7 +46,7 @@ for /f "tokens=1,2,3 delims=." %%a in ("%REQUIRED_VER%") do (
     set REQ_PATCH=%%c
 )
 
-:: 处理空值
+:: Handle empty values
 if not defined CUR_MAJOR set CUR_MAJOR=0
 if not defined CUR_MINOR set CUR_MINOR=0
 if not defined CUR_PATCH set CUR_PATCH=0
@@ -56,22 +54,22 @@ if not defined REQ_MAJOR set REQ_MAJOR=0
 if not defined REQ_MINOR set REQ_MINOR=0
 if not defined REQ_PATCH set REQ_PATCH=0
 
-:: 移除可能的前缀（如Java的1.8.0中的"1."）
+:: Remove Java version prefix (e.g., "1." from "1.8.0")
 if "%CUR_MAJOR%"=="1" if not "%CUR_MINOR%"=="" (
     set CUR_MAJOR=%CUR_MINOR%
     set CUR_MINOR=%CUR_PATCH%
     set CUR_PATCH=0
 )
 
-:: 主版本比较
+:: Major version comparison
 if %CUR_MAJOR% gtr %REQ_MAJOR% exit /b 0
 if %CUR_MAJOR% lss %REQ_MAJOR% exit /b 1
 
-:: 次版本比较
+:: Minor version comparison
 if %CUR_MINOR% gtr %REQ_MINOR% exit /b 0
 if %CUR_MINOR% lss %REQ_MINOR% exit /b 1
 
-:: 补丁版本比较
+:: Patch version comparison
 if %CUR_PATCH% geq %REQ_PATCH% (
     exit /b 0
 ) else (
@@ -79,8 +77,8 @@ if %CUR_PATCH% geq %REQ_PATCH% (
 )
 
 :: ============================================
-:: Helper 3: 工具版本检测与自动升级
-:: 用法: call :CHECK_TOOL "工具名" "检测命令" "最低版本" "Chocolatey包名" "是否必须"
+:: Helper 3: Tool version detection and auto-upgrade
+:: Usage: call :CHECK_TOOL "tool_name" "check_command" "min_version" "choco_pkg" "is_required"
 :: ============================================
 :CHECK_TOOL
 set TOOL_NAME=%~1
@@ -89,7 +87,7 @@ set MIN_VERSION=%~3
 set CHOCO_PKG=%~4
 set IS_REQUIRED=%~5
 
-:: 检测工具是否存在
+:: Check if tool exists
 where %TOOL_NAME% >nul 2>&1
 if %errorlevel% neq 0 (
     echo [%STEP%/7] %TOOL_NAME% not found, installing...
@@ -108,15 +106,15 @@ if %errorlevel% neq 0 (
     exit /b 0
 )
 
-:: 提取版本号
+:: Extract version number
 for /f "tokens=*" %%v in ('%CHECK_CMD% 2^>^&1') do set VERSION_OUTPUT=%%v
 
-:: 从输出中解析版本号（通用模式）
+:: Parse version number from output (generic pattern)
 for /f "tokens=2 delims= " %%a in ("%VERSION_OUTPUT%") do set DETECTED_VERSION=%%a
-:: 清理版本号中的非数字字符
+:: Clean non-numeric characters from version
 for /f "tokens=1 delims=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-," %%a in ("%DETECTED_VERSION%") do set DETECTED_VERSION=%%a
 
-:: 版本比较
+:: Version comparison - FORCE UPGRADE for ALL tools
 call :VERSION_COMPARE "%DETECTED_VERSION%" "%MIN_VERSION%"
 if %errorlevel% equ 1 (
     echo [%STEP%/7] %TOOL_NAME% %DETECTED_VERSION% ^< %MIN_VERSION%, upgrading...
@@ -133,7 +131,7 @@ if %errorlevel% equ 1 (
 exit /b 0
 
 :: ============================================
-:: Step 1: 自动安装Chocolatey（Windows包管理器，如未安装）
+:: Step 1: Auto-install Chocolatey (Windows package manager)
 :: ============================================
 set STEP=1
 where choco >nul 2>&1
@@ -146,19 +144,19 @@ if %errorlevel% neq 0 (
     echo [%STEP%/7] Chocolatey already installed.
 )
 
-:: 刷新环境变量，确保新安装的工具生效
+:: Refresh environment variables for newly installed tools
 if exist "C:\ProgramData\chocolatey\bin\RefreshEnv.cmd" (
     call "C:\ProgramData\chocolatey\bin\RefreshEnv.cmd" >nul 2>&1
 )
 
 :: ============================================
-:: Step 2: CMake >= 3.20（必须）
+:: Step 2: CMake >= 3.20 (REQUIRED)
 :: ============================================
 set STEP=2
 call :CHECK_TOOL "cmake" "cmake --version" "3.20.0" "cmake" "1"
 
 :: ============================================
-:: Step 3: Visual Studio 2022 Build Tools（必须，MSBuild >= 17.0）
+:: Step 3: Visual Studio 2022 Build Tools (REQUIRED, MSBuild >= 17.0)
 :: ============================================
 set STEP=3
 where msbuild >nul 2>&1
@@ -172,7 +170,7 @@ if %errorlevel% neq 0 (
         echo WARNING: Build Tools installation failed, trying to continue...
     )
 ) else (
-    :: 检测 MSBuild 版本（VS 2022 = 17.x）
+    :: Check MSBuild version (VS 2022 = 17.x)
     for /f "tokens=3 delims= " %%v in ('msbuild -version 2^>^&1') do set MSBUILD_VERSION=%%v
     for /f "tokens=1 delims=." %%m in ("!MSBUILD_VERSION!") do set MSBUILD_MAJOR=%%m
     
@@ -183,7 +181,7 @@ if %errorlevel% neq 0 (
         echo [%STEP%/7] MSBuild !MSBUILD_VERSION! (VS 2022 compatible) - OK
     )
     
-    :: 检测并初始化 vcvarsall.bat 环境
+    :: Check vcvarsall.bat environment
     set VCVARS_FOUND=0
     if exist "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" (
         set VCVARS_FOUND=1
@@ -201,13 +199,13 @@ if %errorlevel% neq 0 (
 )
 
 :: ============================================
-:: Step 4: Pandoc >= 2.18（推荐）
+:: Step 4: Pandoc >= 2.18 (REQUIRED - force version check)
 :: ============================================
 set STEP=4
-call :CHECK_TOOL "pandoc" "pandoc --version" "2.18.0" "pandoc" "0"
+call :CHECK_TOOL "pandoc" "pandoc --version" "2.18.0" "pandoc" "1"
 
 :: ============================================
-:: Step 5: .NET SDK（必须）
+:: Step 5: .NET SDK (REQUIRED)
 :: ============================================
 set STEP=5
 where dotnet >nul 2>&1
@@ -238,7 +236,7 @@ if exist "src\dotnet\TolkDotNet.csproj" (
 )
 
 :: ============================================
-:: Step 6: Java >= 11（必须，支持--release参数）
+:: Step 6: Java >= 11 (REQUIRED - supports --release parameter)
 :: ============================================
 set STEP=6
 where java >nul 2>&1
@@ -252,12 +250,12 @@ if %errorlevel% neq 0 (
         echo WARNING: Java installation failed, Java JAR will be skipped.
     )
 ) else (
-    :: 特殊处理Java版本检测（java -version输出到stderr）
+    :: Special handling for Java version detection (outputs to stderr)
     for /f "tokens=3" %%v in ('java -version 2^>^&1 ^| findstr /i "version"') do (
         set JAVA_VERSION=%%v
         set JAVA_VERSION=!JAVA_VERSION:"=!
     )
-    :: 处理Java版本格式（如1.8.0_302 -> 8, 11.0.12 -> 11）
+    :: Parse Java version format (e.g., 1.8.0_302 -> 8, 11.0.12 -> 11)
     for /f "tokens=1,2 delims=._" %%a in ("!JAVA_VERSION!") do (
         if "%%a"=="1" (
             set JAVA_MAJOR=%%b
@@ -281,10 +279,10 @@ if %errorlevel% neq 0 (
 )
 
 :: ============================================
-:: Step 7: Ninja >= 1.10（可选，加速构建）
+:: Step 7: Ninja >= 1.10 (REQUIRED - force version check)
 :: ============================================
 set STEP=7
-call :CHECK_TOOL "ninja" "ninja --version" "1.10.0" "ninja" "0"
+call :CHECK_TOOL "ninja" "ninja --version" "1.10.0" "ninja" "1"
 
 echo.
 echo [Preflight] All required build tools are ready!
