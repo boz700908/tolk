@@ -25,6 +25,12 @@ jobs:
           - arch: x86
             cmake_arch: Win32
             config: Release
+          - arch: arm64
+            cmake_arch: ARM64
+            config: Debug
+          - arch: arm64
+            cmake_arch: ARM64
+            config: Release
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v6
@@ -95,10 +101,14 @@ jobs:
           mkdir dist\x86\Release
           mkdir dist\x64\Debug
           mkdir dist\x64\Release
+          mkdir dist\arm64\Debug
+          mkdir dist\arm64\Release
           xcopy /E /Y artifacts\tolk-x86-Debug\* dist\x86\Debug\
           xcopy /E /Y artifacts\tolk-x86-Release\* dist\x86\Release\
           xcopy /E /Y artifacts\tolk-x64-Debug\* dist\x64\Debug\
           xcopy /E /Y artifacts\tolk-x64-Release\* dist\x64\Release\
+          xcopy /E /Y artifacts\tolk-arm64-Debug\* dist\arm64\Debug\
+          xcopy /E /Y artifacts\tolk-arm64-Release\* dist\arm64\Release\
           :: .NET Wrapper - separate directory
           mkdir dist\dotnet
           xcopy /E /Y artifacts\tolk-dotnet\* dist\dotnet\
@@ -164,6 +174,8 @@ jobs:
             - x86 Release
             - x64 Debug (with file logging + console output)
             - x64 Release
+            - ARM64 Debug (NVDA only)
+            - ARM64 Release (NVDA only)
             - .NET Wrapper
             - Java JAR
             - Documentation
