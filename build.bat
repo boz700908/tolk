@@ -143,7 +143,7 @@ if %errorlevel% equ 1 (
         echo WARNING: %TOOL_NAME% upgrade failed, using current version.
     )
 ) else (
-    echo [%STEP%/7] %TOOL_NAME% %DETECTED_VERSION% (>= %MIN_VERSION%) - OK
+    echo [%STEP%/7] %TOOL_NAME% %DETECTED_VERSION% OK
 )
 endlocal & exit /b 0
 
@@ -200,7 +200,7 @@ if %errorlevel% neq 0 (
         echo [%STEP%/7] WARNING: MSBuild !MSBUILD_VERSION! is older than VS 2022 (17.x)
         echo [%STEP%/7] Recommend upgrading to Visual Studio 2022 Build Tools
     ) else (
-        echo [%STEP%/7] MSBuild !MSBUILD_VERSION! (VS 2022 compatible) - OK
+        echo [%STEP%/7] MSBuild !MSBUILD_VERSION! OK
     )
     
     :: Check vcvarsall.bat environment
@@ -296,7 +296,7 @@ if %errorlevel% neq 0 (
             echo WARNING: Java upgrade failed. --release parameter may not work.
         )
     ) else (
-        echo [%STEP%/7] Java !JAVA_MAJOR! (>= 11, supports --release) - OK
+        echo [%STEP%/7] Java !JAVA_MAJOR! OK
     )
 )
 
