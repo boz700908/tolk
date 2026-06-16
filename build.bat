@@ -122,11 +122,13 @@ if %errorlevel% neq 0 (
     endlocal & exit /b 0
 )
 
-:: Extract version number - FIX: take ONLY FIRST LINE of output (using delayed expansion)
+:: Extract version number - FIX: take ONLY FIRST LINE using GOTO (only reliable method)
 set VERSION_OUTPUT=
 for /f "tokens=*" %%v in ('%CHECK_CMD% 2^>^&1') do (
-    if not defined VERSION_OUTPUT set VERSION_OUTPUT=%%v
+    set VERSION_OUTPUT=%%v
+    goto VERSION_DONE
 )
+:VERSION_DONE
 
 :: Parse version number from output (generic pattern)
 for /f "tokens=3 delims= " %%a in ("%VERSION_OUTPUT%") do set DETECTED_VERSION=%%a
