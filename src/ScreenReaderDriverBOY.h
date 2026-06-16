@@ -44,9 +44,13 @@ public:
     static void __stdcall SpeakCompleteCallback(int reason);
 private:
     HINSTANCE controller;
-    CRITICAL_SECTION cs;
+    SRWLOCK srwLock;  // 性能优化：使用SRWLock代替CRITICAL_SECTION
     volatile LONG isSpeaking;
     volatile LONG speakCompleteReason;
+    // 性能优化：IsActive结果缓存（100ms超时，避免频繁跨进程调用）
+    static const DWORD CACHE_TIMEOUT_MS = 100;
+    DWORD lastIsActiveTime;
+    bool cachedIsActive;
     BoyCtrlInitialize BoyInit;
     BoyCtrlUninitialize BoyUninit;
     BoyCtrlIsReaderRunning BoyIsRunning;

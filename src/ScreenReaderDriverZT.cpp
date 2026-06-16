@@ -10,6 +10,8 @@
 ScreenReaderDriverZT::ScreenReaderDriverZT() :
   ScreenReaderDriver(L"ZoomText", true, false),
   controller(nullptr),
+  lastIsActiveTime(0),
+  cachedIsActive(false),
   speech(nullptr)
 {
   TOLK_LOG_INFO("ZT: Initializing driver");
@@ -65,12 +67,22 @@ bool ScreenReaderDriverZT::Silence() {
   return succeeded;
 }
 bool ScreenReaderDriverZT::IsActive() {
+  // 性能优化：先检查缓存（100ms超时）
+  DWORD currentTime = GetTickCount();
+  if ((currentTime - lastIsActiveTime) < 100) {
+    return cachedIsActive;
+  }
+
   if (!IsRunning()) {
     Finalize();
+    cachedIsActive = false;
+    lastIsActiveTime = currentTime;
     return false;
   }
   if (!controller) Initialize();
-  return (!!controller); 
+  cachedIsActive = (!!controller);
+  lastIsActiveTime = currentTime;
+  return cachedIsActive;
 }
 void ScreenReaderDriverZT::Initialize() {
   if (controller || FAILED(CoCreateInstance(CLSID_ZoomText, nullptr, CLSCTX_LOCAL_SERVER, IID_IZoomText2, (void **)&controller))) {

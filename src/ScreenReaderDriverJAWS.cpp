@@ -10,7 +10,9 @@
 #include "TolkDebug.h"
 ScreenReaderDriverJAWS::ScreenReaderDriverJAWS() :
   ScreenReaderDriver(L"JAWS", true, true),
-  controller(nullptr)
+  controller(nullptr),
+  lastIsActiveTime(0),
+  cachedIsActive(false)
 {
   TOLK_LOG_INFO("JAWS: Initializing driver");
   if (IsRunning()) {
@@ -57,12 +59,22 @@ bool ScreenReaderDriverJAWS::Silence() {
   return SUCCEEDED(controller->StopSpeech());
 }
 bool ScreenReaderDriverJAWS::IsActive() {
+  // 性能优化：先检查缓存（100ms超时）
+  DWORD currentTime = GetTickCount();
+  if ((currentTime - lastIsActiveTime) < 100) {
+    return cachedIsActive;
+  }
+
   if (!IsRunning()) {
     Finalize();
+    cachedIsActive = false;
+    lastIsActiveTime = currentTime;
     return false;
   }
   if (!controller) Initialize();
-  return (!!controller);
+  cachedIsActive = (!!controller);
+  lastIsActiveTime = currentTime;
+  return cachedIsActive;
 }
 bool ScreenReaderDriverJAWS::Output(const wchar_t *str, bool interrupt) {
   // Beware short-circuiting.

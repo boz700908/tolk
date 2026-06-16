@@ -12,6 +12,8 @@
 ScreenReaderDriverZDSR::ScreenReaderDriverZDSR() :
   ScreenReaderDriver(L"ZDSR", true, true),
   controller(nullptr),
+  lastIsActiveTime(0),
+  cachedIsActive(false),
   zdsrInitTTS(nullptr),
   zdsrGetSpeakState(nullptr),
   zdsrSpeak(nullptr),
@@ -68,6 +70,12 @@ bool ScreenReaderDriverZDSR::IsSpeaking() {
   return false;
 }
 bool ScreenReaderDriverZDSR::IsActive() {
+  // 性能优化：先检查缓存（100ms超时）
+  DWORD currentTime = GetTickCount();
+  if ((currentTime - lastIsActiveTime) < 100) {
+    return cachedIsActive;
+  }
+
   // Per official documentation:
   // State 3 = ZDSR_STATE_SPEAKING (speaking)
   // State 4 = ZDSR_STATE_IDLE (not speaking but ZDSR is running)
@@ -75,9 +83,12 @@ bool ScreenReaderDriverZDSR::IsActive() {
   // States 1, 2, 8, 9 = error / not running
   if (zdsrGetSpeakState) {
     int state = zdsrGetSpeakState();
-    return (state == ZDSR_STATE_SPEAKING || state == ZDSR_STATE_IDLE);
+    cachedIsActive = (state == ZDSR_STATE_SPEAKING || state == ZDSR_STATE_IDLE);
+  } else {
+    cachedIsActive = false;
   }
-  return false;
+  lastIsActiveTime = currentTime;
+  return cachedIsActive;
 }
 bool ScreenReaderDriverZDSR::Output(const wchar_t *str, bool interrupt) {
   const bool speak = Speak(str, interrupt);

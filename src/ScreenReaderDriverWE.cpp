@@ -10,6 +10,8 @@
 ScreenReaderDriverWE::ScreenReaderDriverWE() :
   ScreenReaderDriver(L"Window-Eyes", true, true),
   controller(nullptr),
+  lastIsActiveTime(0),
+  cachedIsActive(false),
   speech(nullptr),
   braille(nullptr)
 {
@@ -50,12 +52,22 @@ bool ScreenReaderDriverWE::Silence() {
   return SUCCEEDED(speech->Silence());
 }
 bool ScreenReaderDriverWE::IsActive() {
+  // 性能优化：先检查缓存（100ms超时）
+  DWORD currentTime = GetTickCount();
+  if ((currentTime - lastIsActiveTime) < 100) {
+    return cachedIsActive;
+  }
+
   if (!IsRunning()) {
     Finalize();
+    cachedIsActive = false;
+    lastIsActiveTime = currentTime;
     return false;
   }
   if (!controller) Initialize();
-  return (!!controller);
+  cachedIsActive = (!!controller);
+  lastIsActiveTime = currentTime;
+  return cachedIsActive;
 }
 bool ScreenReaderDriverWE::Output(const wchar_t *str, bool interrupt) {
   if (!controller || !speech || !braille) return false;

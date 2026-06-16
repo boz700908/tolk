@@ -25,13 +25,15 @@ void __stdcall ScreenReaderDriverBOY::SpeakCompleteCallback(int reason)
 ScreenReaderDriverBOY::ScreenReaderDriverBOY()
     : ScreenReaderDriver(L"BoyPCReader", true, false),
       controller(nullptr),
+      srwLock(SRWLOCK_INIT),  // SRWLock静态初始化
       isSpeaking(0),
       speakCompleteReason(0),
+      lastIsActiveTime(0),
+      cachedIsActive(false),
       BoyInit(nullptr), BoyUninit(nullptr),
       BoyIsRunning(nullptr), BoyGetState(nullptr),
       BoySpeak(nullptr), BoyStopSpeak(nullptr)
 {
-    InitializeCriticalSection(&cs);
     g_instance = this;
 #ifdef _WIN64
     TOLK_LOG_INFO("BOY: Loading 64-bit byctrl-x64.dll");
@@ -76,7 +78,7 @@ ScreenReaderDriverBOY::ScreenReaderDriverBOY()
 }
 ScreenReaderDriverBOY::~ScreenReaderDriverBOY()
 {
-    EnterCriticalSection(&cs);
+    AcquireSRWLockExclusive(&srwLock);
     g_instance = nullptr;
     if (controller)
     {
@@ -86,14 +88,14 @@ ScreenReaderDriverBOY::~ScreenReaderDriverBOY()
         FreeLibrary(controller);
         controller = nullptr;
     }
-    LeaveCriticalSection(&cs);
-    DeleteCriticalSection(&cs);
+    ReleaseSRWLockExclusive(&srwLock);
+    // SRWLock不需要销毁
 }
 bool ScreenReaderDriverBOY::Speak(const wchar_t* str, bool interrupt)
 {
-    EnterCriticalSection(&cs);
+    AcquireSRWLockExclusive(&srwLock);
     if (!controller || !BoySpeak || !str || str[0] == L'\0') {
-        LeaveCriticalSection(&cs);
+        ReleaseSRWLockExclusive(&srwLock);
         return false;
     }
     // Per official documentation:
@@ -108,7 +110,7 @@ bool ScreenReaderDriverBOY::Speak(const wchar_t* str, bool interrupt)
     InterlockedExchange(&speakCompleteReason, 0);
     InterlockedExchange(&isSpeaking, 1);
     int err = BoySpeak(str, append, SpeakCompleteCallback);
-    LeaveCriticalSection(&cs);
+    ReleaseSRWLockExclusive(&srwLock);
     return (err == e_bcerr_success);
 }
 bool ScreenReaderDriverBOY::Braille(const wchar_t* /*str*/)
@@ -122,9 +124,9 @@ bool ScreenReaderDriverBOY::IsSpeaking()
 }
 bool ScreenReaderDriverBOY::Silence()
 {
-    EnterCriticalSection(&cs);
+    AcquireSRWLockExclusive(&srwLock);
     if (!controller || !BoyStopSpeak) {
-        LeaveCriticalSection(&cs);
+        ReleaseSRWLockExclusive(&srwLock);
         return false;
     }
     int err = BoyStopSpeak();
@@ -132,19 +134,31 @@ bool ScreenReaderDriverBOY::Silence()
     {
         InterlockedExchange(&speakCompleteReason, e_bccr_stopped);
         InterlockedExchange(&isSpeaking, 0);
-        LeaveCriticalSection(&cs);
+        ReleaseSRWLockExclusive(&srwLock);
         return true;
     }
-    LeaveCriticalSection(&cs);
+    ReleaseSRWLockExclusive(&srwLock);
     return false;
 }
 bool ScreenReaderDriverBOY::IsActive()
 {
+    // 性能优化：先检查缓存（100ms超时）
+    DWORD currentTime = GetTickCount();
+    if ((currentTime - lastIsActiveTime) < CACHE_TIMEOUT_MS) {
+        return cachedIsActive;
+    }
+
     // Per official documentation: Use BoyCtrlIsReaderRunning()
     // Must have called BoyCtrlInitialize first (done in constructor)
-    if (!controller || !BoyIsRunning)
+    if (!controller || !BoyIsRunning) {
+        cachedIsActive = false;
+        lastIsActiveTime = currentTime;
         return false;
-    return BoyIsRunning() != false;
+    }
+
+    cachedIsActive = (BoyIsRunning() != false);
+    lastIsActiveTime = currentTime;
+    return cachedIsActive;
 }
 bool ScreenReaderDriverBOY::Output(const wchar_t* str, bool interrupt)
 {

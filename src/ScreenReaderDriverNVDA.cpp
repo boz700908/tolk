@@ -12,6 +12,8 @@
 ScreenReaderDriverNVDA::ScreenReaderDriverNVDA() :
   ScreenReaderDriver(L"NVDA", true, true),
   controller(nullptr),
+  lastIsActiveTime(0),
+  cachedIsActive(false),
   nvdaController_speakText(nullptr),
   nvdaController_brailleMessage(nullptr),
   nvdaController_cancelSpeech(nullptr),
@@ -57,9 +59,20 @@ bool ScreenReaderDriverNVDA::Silence() {
   return false;
 }
 bool ScreenReaderDriverNVDA::IsActive() {
+  // 性能优化：先检查缓存（100ms超时）
+  DWORD currentTime = GetTickCount();
+  if ((currentTime - lastIsActiveTime) < 100) {
+    return cachedIsActive;
+  }
+
   // This needs an extra check because System Access pretends to be NVDA.
-  if (nvdaController_testIfRunning) return  (!!FindWindow(L"wxWindowClassNR", L"NVDA") && nvdaController_testIfRunning() == 0);
-  return false;
+  if (nvdaController_testIfRunning) {
+    cachedIsActive = (!!FindWindow(L"wxWindowClassNR", L"NVDA") && nvdaController_testIfRunning() == 0);
+  } else {
+    cachedIsActive = false;
+  }
+  lastIsActiveTime = currentTime;
+  return cachedIsActive;
 }
 bool ScreenReaderDriverNVDA::Output(const wchar_t *str, bool interrupt) {
   // Beware short-circuiting.

@@ -10,6 +10,8 @@
 ScreenReaderDriverSA::ScreenReaderDriverSA() :
   ScreenReaderDriver(L"System Access", true, true),
   controller(nullptr),
+  lastIsActiveTime(0),
+  cachedIsActive(false),
   sa_SayW(nullptr),
   sa_BrlShowTextW(nullptr),
   sa_StopAudio(nullptr),
@@ -55,8 +57,19 @@ bool ScreenReaderDriverSA::Silence() {
   return false;
 }
 bool ScreenReaderDriverSA::IsActive() {
-  if (sa_IsRunning) return sa_IsRunning();
-  return false;
+  // 性能优化：先检查缓存（100ms超时）
+  DWORD currentTime = GetTickCount();
+  if ((currentTime - lastIsActiveTime) < 100) {
+    return cachedIsActive;
+  }
+
+  if (sa_IsRunning) {
+    cachedIsActive = sa_IsRunning();
+  } else {
+    cachedIsActive = false;
+  }
+  lastIsActiveTime = currentTime;
+  return cachedIsActive;
 }
 bool ScreenReaderDriverSA::Output(const wchar_t *str, bool interrupt) {
   // Beware short-circuiting.

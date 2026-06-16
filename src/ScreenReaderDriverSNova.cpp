@@ -26,6 +26,8 @@
 ScreenReaderDriverSNova::ScreenReaderDriverSNova() :
   ScreenReaderDriver(L"SuperNova", true, false),
   controller(nullptr),
+  lastIsActiveTime(0),
+  cachedIsActive(false),
   dolAccess_GetSystem(nullptr),
   dolAccess_Action(nullptr),
   dolAccess_Command(nullptr)
@@ -65,9 +67,18 @@ bool ScreenReaderDriverSNova::Silence() {
   return false;
 }
 bool ScreenReaderDriverSNova::IsActive() {
+  // 性能优化：先检查缓存（100ms超时）
+  DWORD currentTime = GetTickCount();
+  if ((currentTime - lastIsActiveTime) < 100) {
+    return cachedIsActive;
+  }
+
   if (dolAccess_GetSystem) {
     const int result = dolAccess_GetSystem();
-    return (result == DOLACCESS_HAL || result == DOLACCESS_SUPERNOVA || result == DOLACCESS_LUNARPLUS);
+    cachedIsActive = (result == DOLACCESS_HAL || result == DOLACCESS_SUPERNOVA || result == DOLACCESS_LUNARPLUS);
+  } else {
+    cachedIsActive = false;
   }
-  return false;
+  lastIsActiveTime = currentTime;
+  return cachedIsActive;
 }
