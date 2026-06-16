@@ -1,14 +1,18 @@
 # Prefer modern Roslyn compiler from .NET SDK (supports latest C# features)
 # Fall back to .NET Framework csc for compatibility
+set(PROGRAM_FILES_X86 "$ENV{ProgramFiles(x86)}")
+set(PROGRAM_FILES "$ENV{ProgramFiles}")
+set(WINDIR "$ENV{WINDIR}")
+
 find_program(CSC csc
   PATHS
     # .NET SDK locations (modern Roslyn compiler, C# 12+)
-    "$ENV{ProgramFiles}/dotnet/sdk/*/Roslyn/bincore"
-    "$ENV{ProgramFiles(x86)}/Microsoft Visual Studio/*/BuildTools/MSBuild/*/Bin/Roslyn"
-    "$ENV{ProgramFiles}/Microsoft Visual Studio/*/BuildTools/MSBuild/*/Bin/Roslyn"
+    "${PROGRAM_FILES}/dotnet/sdk/*/Roslyn/bincore"
+    "${PROGRAM_FILES_X86}/Microsoft Visual Studio/*/BuildTools/MSBuild/*/Bin/Roslyn"
+    "${PROGRAM_FILES}/Microsoft Visual Studio/*/BuildTools/MSBuild/*/Bin/Roslyn"
     # .NET Framework locations (legacy C# 5.0 compiler)
-    "$ENV{WINDIR}/Microsoft.NET/Framework64/v4.0.30319"
-    "$ENV{WINDIR}/Microsoft.NET/Framework/v4.0.30319"
+    "${WINDIR}/Microsoft.NET/Framework64/v4.0.30319"
+    "${WINDIR}/Microsoft.NET/Framework/v4.0.30319"
   DOC "C# compiler (Roslyn preferred)"
 )
 
@@ -24,7 +28,6 @@ set(DOTNET_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/TolkDotNet.dll")
 
 # Use latest C# language version, but target .NET Framework 4.0 for maximum compatibility
 # /langversion:latest enables all C# features (expression-bodied members, etc.)
-# /nostdlib+ /noconfig ensures we don't pull in newer framework dependencies
 add_custom_command(
   OUTPUT ${DOTNET_OUTPUT}
   COMMAND ${CSC} /nologo /optimize /target:library /warn:4
