@@ -158,7 +158,7 @@ set STEP=2
 call :CHECK_TOOL "cmake" "cmake --version" "3.20.0" "cmake" "1"
 
 :: ============================================
-:: Step 3: Visual Studio 2022 Build Tools（必须）
+:: Step 3: Visual Studio 2022 Build Tools（必须，MSBuild >= 17.0）
 :: ============================================
 set STEP=3
 where msbuild >nul 2>&1
@@ -172,7 +172,32 @@ if %errorlevel% neq 0 (
         echo WARNING: Build Tools installation failed, trying to continue...
     )
 ) else (
-    echo [%STEP%/7] MSBuild / Visual Studio Build Tools - OK
+    :: 检测 MSBuild 版本（VS 2022 = 17.x）
+    for /f "tokens=3 delims= " %%v in ('msbuild -version 2^>^&1') do set MSBUILD_VERSION=%%v
+    for /f "tokens=1 delims=." %%m in ("!MSBUILD_VERSION!") do set MSBUILD_MAJOR=%%m
+    
+    if !MSBUILD_MAJOR! lss 17 (
+        echo [%STEP%/7] WARNING: MSBuild !MSBUILD_VERSION! is older than VS 2022 (17.x)
+        echo [%STEP%/7] Recommend upgrading to Visual Studio 2022 Build Tools
+    ) else (
+        echo [%STEP%/7] MSBuild !MSBUILD_VERSION! (VS 2022 compatible) - OK
+    )
+    
+    :: 检测并初始化 vcvarsall.bat 环境
+    set VCVARS_FOUND=0
+    if exist "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" (
+        set VCVARS_FOUND=1
+    ) else if exist "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat" (
+        set VCVARS_FOUND=1
+    ) else if exist "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" (
+        set VCVARS_FOUND=1
+    )
+    
+    if !VCVARS_FOUND! equ 1 (
+        echo [%STEP%/7] VS 2022 vcvarsall.bat detected - OK
+    ) else (
+        echo [%STEP%/7] WARNING: VS 2022 vcvarsall.bat not found, may need full VS 2022 installation
+    )
 )
 
 :: ============================================
