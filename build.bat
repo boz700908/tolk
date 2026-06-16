@@ -3,6 +3,10 @@ setlocal
 echo ============================================
 echo  Tolk Build Script - x86 + x64 (Debug + Release)
 echo ============================================
+:: 刷新Chocolatey环境变量，确保找到Pandoc等工具
+if exist "C:\ProgramData\chocolatey\bin\RefreshEnv.cmd" (
+    call "C:\ProgramData\chocolatey\bin\RefreshEnv.cmd"
+)
 :: Parse command line arguments
 set BUILD_DEBUG=1
 set BUILD_RELEASE=1
