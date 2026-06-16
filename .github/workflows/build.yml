@@ -187,30 +187,6 @@ jobs:
           body: |
             Commit Hash: ${{ github.sha }}
             Target Branch: ${{ github.ref_name }}
-
-            ```
-            dist/
-            ├── x86/
-            │   ├── Debug/
-            │   └── Release/
-            ├── x64/
-            │   ├── Debug/
-            │   └── Release/
-            ├── arm64/
-            │   ├── Debug/
-            │   └── Release/
-            ├── wrappers/
-            │   ├── dotnet/
-            │   ├── java/
-            │   ├── python/
-            │   ├── autoit/
-            │   └── purebasic/
-            ├── dotnet/
-            ├── java/
-            ├── docs/
-            ├── DEBUG_FEATURES.txt
-            └── LICENSE files
-            ```
           files: tolk.zip
           draft: false
           prerelease: false

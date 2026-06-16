@@ -35,18 +35,15 @@ By default, support for SAPI is enabled. To change this, use `Tolk_TrySAPI`, pas
 SAPI is initially put at the end of the auto-detection chain. This is good for using it as a fallback option when none of the supported screen readers is running. It is also possible to have Tolk prefer SAPI over the other screen reader drivers. This is good for basic SAPI output where screen readers are only tried if SAPI fails or if SAPI 5.4 or later is unavailable. To change the preference for SAPI, use `Tolk_PreferSAPI`. This also takes a boolean parameter, `true` to prefer SAPI or `false` to prefer the traditional screen readers.
 The most efficient way of enabling SAPI support is to set it up before calling `Tolk_Load`. However, you can also call these functions after Tolk has already been loaded. This will trigger the screen reader detection process and is therefore slightly less efficient.
 ### Wrappers
-Wrappers around `Tolk.dll` have been added for some languages to make things easier. All wrappers are located in the **shared top-level `wrappers/` directory** (no duplication across architectures):
-```
-wrappers/
-├── dotnet/      # .NET (C#/VB.NET): TolkDotNet.dll
-├── java/        # Java: Tolk.jar + compiled classes
-├── python/      # Python: Tolk.py
-├── autoit/      # AutoIt: Tolk.au3
-└── purebasic/   # PureBasic: Tolk.pb
-```
-* **Legacy locations**: Separate `dotnet/` and `java/` directories are also retained at the top level for backward compatibility.
+Wrappers around `Tolk.dll` have been added for some languages to make things easier:
 
-The wrappers cover all functions and use the language's native types where possible. The function names have also been adapted to meet the specific conventions for these languages.
+* **.NET (C#/VB.NET)**: Provides managed access to Tolk functions for .NET applications.
+* **Java**: Enables Java applications to call Tolk functionality via JNI.
+* **Python**: Offers a Pythonic interface for screen reader output.
+* **AutoIt**: Allows AutoIt scripts to use Tolk for accessibility.
+* **PureBasic**: Provides native bindings for PureBasic projects.
+
+The wrappers cover all functions and use the language's native types where possible.
 ## Examples
 Take a look at the `examples` directory to get started. This directory contains console applications in the supported languages that demonstrate the basic usage. Note that Microsoft SAPI will stop speaking when your application closes, which means that it will not work with these console applications because they return immediately after queueing text. Add a short delay (sleep) to work around this if you want to try SAPI.
 ## Supported screen readers
