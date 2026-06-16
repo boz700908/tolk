@@ -188,54 +188,29 @@ jobs:
             Commit Hash: ${{ github.sha }}
             Target Branch: ${{ github.ref_name }}
 
-            ## 📦 Build Artifacts Structure Update
-
-            ### 🔧 Major Directory Structure Adjustment
-            This build introduces a **major optimization** to the release package structure:
-
-            ### 📁 New Shared `wrappers/` Top-Level Directory
-            All language wrappers are now stored in a **single shared directory** (no more duplication across architectures):
-            - ✅ **Eliminated 6 duplicate copies** of each wrapper
-            - ✅ **Single source of truth** for all language bindings
-            - ✅ **Reduced package size** by removing redundant files
-
-            ### 🔗 .NET Wrapper Completion
-            - `TolkDotNet.dll` is now included in both:
-              - `wrappers/dotnet/` (unified wrappers directory)
-              - `dotnet/` (legacy location for backward compatibility)
-
-            ### 📊 Complete Directory Structure
             ```
             dist/
             ├── x86/
-            │   ├── Debug/      # 32-bit Debug (Tolk.dll + drivers + PDB symbols)
-            │   └── Release/    # 32-bit Release
+            │   ├── Debug/
+            │   └── Release/
             ├── x64/
-            │   ├── Debug/      # 64-bit Debug
-            │   └── Release/    # 64-bit Release
+            │   ├── Debug/
+            │   └── Release/
             ├── arm64/
-            │   ├── Debug/      # ARM64 Debug (NVDA only)
-            │   └── Release/    # ARM64 Release (NVDA only)
-            ├── wrappers/       # Shared language wrappers (ALL architectures)
-            │   ├── dotnet/     # .NET wrapper (TolkDotNet.dll)
-            │   ├── java/       # Java wrapper (Tolk.jar)
-            │   ├── python/     # Python wrapper (Tolk.py)
-            │   ├── autoit/     # AutoIt wrapper (Tolk.au3)
-            │   └── purebasic/  # PureBasic wrapper (Tolk.pb)
-            ├── dotnet/         # Legacy .NET (backward compatibility)
-            ├── java/           # Legacy Java (backward compatibility)
-            ├── docs/           # Documentation
-            └── DEBUG_FEATURES.txt
+            │   ├── Debug/
+            │   └── Release/
+            ├── wrappers/
+            │   ├── dotnet/
+            │   ├── java/
+            │   ├── python/
+            │   ├── autoit/
+            │   └── purebasic/
+            ├── dotnet/
+            ├── java/
+            ├── docs/
+            ├── DEBUG_FEATURES.txt
+            └── LICENSE files
             ```
-
-            ### ✅ Build Artifacts Included
-            - x86 Debug (with file logging + console output)
-            - x86 Release
-            - x64 Debug (with file logging + console output)
-            - x64 Release
-            - ARM64 Debug (NVDA only)
-            - ARM64 Release (NVDA only)
-            - Documentation
           files: tolk.zip
           draft: false
           prerelease: false
