@@ -8,17 +8,19 @@ set(JAVA_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/com/davykager/tolk/Tolk.java")
 set(JAVA_CLASS_DIR "${CMAKE_CURRENT_BINARY_DIR}/classes")
 set(JAR_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/Tolk.jar")
 
-# Modern Java build - use default target of installed JDK
+# Java 8 compatibility mode
+# --release 8: Proper cross-compilation for Java 8+ compatibility
 add_custom_command(
   OUTPUT ${JAVA_CLASS_DIR}/com/davykager/tolk/Tolk.class
   COMMAND ${CMAKE_COMMAND} -E make_directory ${JAVA_CLASS_DIR}
   COMMAND ${Java_JAVAC_EXECUTABLE}
+    --release 8
     -Xlint:all
     -g:none -O
     -d ${JAVA_CLASS_DIR}
     ${JAVA_SOURCE}
   DEPENDS ${JAVA_SOURCE}
-  COMMENT "Compiling Java source"
+  COMMENT "Compiling Java source (Java 8+ compatible)"
   VERBATIM
 )
 
@@ -28,7 +30,7 @@ add_custom_command(
     --create --file ${JAR_OUTPUT}
     -C ${JAVA_CLASS_DIR} .
   DEPENDS ${JAVA_CLASS_DIR}/com/davykager/tolk/Tolk.class
-  COMMENT "Creating Tolk.jar"
+  COMMENT "Creating Tolk.jar (Java 8 bytecode)"
   VERBATIM
 )
 
