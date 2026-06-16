@@ -17,7 +17,10 @@ ScreenReaderDriverNVDA::ScreenReaderDriverNVDA() :
   nvdaController_cancelSpeech(nullptr),
   nvdaController_testIfRunning(nullptr)
 {
-#ifdef _WIN64
+#ifdef _M_ARM64
+  TOLK_LOG_INFO("NVDA: Loading ARM64 native nvdaControllerClientARM64.dll");
+  controller = LoadLibrary(L"nvdaControllerClientARM64.dll");
+#elif defined(_WIN64)
   TOLK_LOG_INFO("NVDA: Loading 64-bit nvdaControllerClient64.dll");
   controller = LoadLibrary(L"nvdaControllerClient64.dll");
 #else
