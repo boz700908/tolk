@@ -110,12 +110,30 @@ jobs:
           xcopy /E /Y artifacts\tolk-x64-Release\* dist\x64\Release\
           xcopy /E /Y artifacts\tolk-arm64-Debug\* dist\arm64\Debug\
           xcopy /E /Y artifacts\tolk-arm64-Release\* dist\arm64\Release\
+          :: Language wrappers - shared common directory (avoid duplication across architectures)
+          mkdir dist\wrappers\autoit
+          mkdir dist\wrappers\purebasic
+          mkdir dist\wrappers\python
+          xcopy /E /Y dist\x64\Release\autoit\* dist\wrappers\autoit\
+          xcopy /E /Y dist\x64\Release\purebasic\* dist\wrappers\purebasic\
+          xcopy /E /Y dist\x64\Release\python\* dist\wrappers\python\
+          :: Remove duplicate wrapper directories from all architecture folders
+          rmdir /s /q dist\x86\Debug\autoit dist\x86\Debug\purebasic dist\x86\Debug\python 2>nul
+          rmdir /s /q dist\x86\Release\autoit dist\x86\Release\purebasic dist\x86\Release\python 2>nul
+          rmdir /s /q dist\x64\Debug\autoit dist\x64\Debug\purebasic dist\x64\Debug\python 2>nul
+          rmdir /s /q dist\x64\Release\autoit dist\x64\Release\purebasic dist\x64\Release\python 2>nul
+          rmdir /s /q dist\arm64\Debug\autoit dist\arm64\Debug\purebasic dist\arm64\Debug\python 2>nul
+          rmdir /s /q dist\arm64\Release\autoit dist\arm64\Release\purebasic dist\arm64\Release\python 2>nul
           :: .NET Wrapper - separate directory
           mkdir dist\dotnet
           xcopy /E /Y artifacts\tolk-dotnet\* dist\dotnet\
+          :: Also copy .NET wrapper to wrappers directory for unified access
+          xcopy /E /Y artifacts\tolk-dotnet\* dist\wrappers\dotnet\
           :: Java Wrapper - separate directory
           mkdir dist\java
           xcopy /E /Y artifacts\tolk-java\* dist\java\
+          :: Also copy Java wrapper to wrappers directory for unified access
+          xcopy /E /Y artifacts\tolk-java\* dist\wrappers\java\
           :: Documentation - separate directory
           mkdir dist\docs
           xcopy /E /Y artifacts\tolk-docs\* dist\docs\
@@ -177,8 +195,7 @@ jobs:
             - x64 Release
             - ARM64 Debug (NVDA only)
             - ARM64 Release (NVDA only)
-            - .NET Wrapper
-            - Java JAR
+            - Shared Wrappers: AutoIt, PureBasic, Python, .NET, Java
             - Documentation
           files: tolk.zip
           draft: false
