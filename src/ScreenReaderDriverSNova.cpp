@@ -26,8 +26,6 @@
 ScreenReaderDriverSNova::ScreenReaderDriverSNova() :
   ScreenReaderDriver(L"SuperNova", true, false),
   controller(nullptr),
-  lastIsActiveTime(0),
-  cachedIsActive(false),
   dolAccess_GetSystem(nullptr),
   dolAccess_Action(nullptr),
   dolAccess_Command(nullptr)

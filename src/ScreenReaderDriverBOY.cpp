@@ -28,8 +28,6 @@ ScreenReaderDriverBOY::ScreenReaderDriverBOY()
       srwLock(SRWLOCK_INIT),  // SRWLock static initialization
       isSpeaking(0),
       speakCompleteReason(0),
-      lastIsActiveTime(0),
-      cachedIsActive(false),
       BoyInit(nullptr), BoyUninit(nullptr),
       BoyIsRunning(nullptr), BoyGetState(nullptr),
       BoySpeak(nullptr), BoyStopSpeak(nullptr)

@@ -10,9 +10,7 @@
 #include "TolkDebug.h"
 ScreenReaderDriverJAWS::ScreenReaderDriverJAWS() :
   ScreenReaderDriver(L"JAWS", true, true),
-  controller(nullptr),
-  lastIsActiveTime(0),
-  cachedIsActive(false)
+  controller(nullptr)
 {
   TOLK_LOG_INFO("JAWS: Initializing driver");
   if (IsRunning()) {

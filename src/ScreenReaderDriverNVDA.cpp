@@ -12,8 +12,6 @@
 ScreenReaderDriverNVDA::ScreenReaderDriverNVDA() :
   ScreenReaderDriver(L"NVDA", true, true),
   controller(nullptr),
-  lastIsActiveTime(0),
-  cachedIsActive(false),
   nvdaController_speakText(nullptr),
   nvdaController_brailleMessage(nullptr),
   nvdaController_cancelSpeech(nullptr),

@@ -10,8 +10,6 @@
 ScreenReaderDriverWE::ScreenReaderDriverWE() :
   ScreenReaderDriver(L"Window-Eyes", true, true),
   controller(nullptr),
-  lastIsActiveTime(0),
-  cachedIsActive(false),
   speech(nullptr),
   braille(nullptr)
 {

@@ -12,8 +12,6 @@
 ScreenReaderDriverZDSR::ScreenReaderDriverZDSR() :
   ScreenReaderDriver(L"ZDSR", true, true),
   controller(nullptr),
-  lastIsActiveTime(0),
-  cachedIsActive(false),
   zdsrInitTTS(nullptr),
   zdsrGetSpeakState(nullptr),
   zdsrSpeak(nullptr),

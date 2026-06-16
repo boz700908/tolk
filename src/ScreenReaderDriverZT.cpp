@@ -10,8 +10,6 @@
 ScreenReaderDriverZT::ScreenReaderDriverZT() :
   ScreenReaderDriver(L"ZoomText", true, false),
   controller(nullptr),
-  lastIsActiveTime(0),
-  cachedIsActive(false),
   speech(nullptr)
 {
   TOLK_LOG_INFO("ZT: Initializing driver");

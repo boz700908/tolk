@@ -10,8 +10,6 @@
 ScreenReaderDriverSA::ScreenReaderDriverSA() :
   ScreenReaderDriver(L"System Access", true, true),
   controller(nullptr),
-  lastIsActiveTime(0),
-  cachedIsActive(false),
   sa_SayW(nullptr),
   sa_BrlShowTextW(nullptr),
   sa_StopAudio(nullptr),
