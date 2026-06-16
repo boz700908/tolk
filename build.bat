@@ -3,10 +3,95 @@ setlocal
 echo ============================================
 echo  Tolk Build Script - x86 + x64 (Debug + Release)
 echo ============================================
-:: 刷新Chocolatey环境变量，确保找到Pandoc等工具
-if exist "C:\ProgramData\chocolatey\bin\RefreshEnv.cmd" (
-    call "C:\ProgramData\chocolatey\bin\RefreshEnv.cmd"
+echo [Preflight] Checking and installing required build tools...
+echo.
+
+:: ============================================
+:: Step 1: 自动安装Chocolatey（Windows包管理器，如未安装）
+:: ============================================
+where choco >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [1/6] Chocolatey not found, installing...
+    powershell -NoProfile -InputFormat None -ExecutionPolicy Bypass -Command "iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))" >nul 2>&1
+    set "PATH=%PATH%;%ALLUSERSPROFILE%\chocolatey\bin"
+    echo [1/6] Chocolatey installed successfully.
+) else (
+    echo [1/6] Chocolatey already installed.
 )
+
+:: 刷新环境变量，确保新安装的工具生效
+call "C:\ProgramData\chocolatey\bin\RefreshEnv.cmd" >nul 2>&1
+
+:: ============================================
+:: Step 2: 安装CMake（构建系统，必须）
+:: ============================================
+where cmake >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [2/6] CMake not found, installing...
+    choco install cmake -y >nul 2>&1
+    call RefreshEnv.cmd >nul 2>&1
+    echo [2/6] CMake installed successfully.
+) else (
+    echo [2/6] CMake already installed.
+)
+
+:: ============================================
+:: Step 3: 安装Visual Studio 2022 Build Tools（C++编译器，必须）
+:: ============================================
+where msbuild >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [3/6] MSBuild / Visual Studio Build Tools not found, installing...
+    choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended" -y >nul 2>&1
+    call RefreshEnv.cmd >nul 2>&1
+    echo [3/6] Visual Studio 2022 Build Tools installed successfully.
+) else (
+    echo [3/6] MSBuild / Visual Studio Build Tools already installed.
+)
+
+:: ============================================
+:: Step 4: 安装Pandoc（文档构建，推荐）
+:: ============================================
+where pandoc >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [4/6] Pandoc not found, installing...
+    choco install pandoc -y >nul 2>&1
+    call RefreshEnv.cmd >nul 2>&1
+    echo [4/6] Pandoc installed successfully.
+) else (
+    echo [4/6] Pandoc already installed.
+)
+
+:: ============================================
+:: Step 5: 安装.NET SDK（构建.NET wrapper，需要）
+:: ============================================
+where dotnet >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [5/6] .NET SDK not found, installing...
+    choco install dotnet-sdk -y >nul 2>&1
+    call RefreshEnv.cmd >nul 2>&1
+    echo [5/6] .NET SDK installed successfully.
+) else (
+    echo [5/6] .NET SDK already installed.
+)
+
+:: ============================================
+:: Step 6: 安装OpenJDK 11（构建Java JAR/JNI，需要）
+:: ============================================
+where java >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [6/6] OpenJDK not found, installing...
+    choco install openjdk11 -y >nul 2>&1
+    call RefreshEnv.cmd >nul 2>&1
+    echo [6/6] OpenJDK 11 installed successfully.
+) else (
+    echo [6/6] OpenJDK already installed.
+)
+
+echo.
+echo [Preflight] All required build tools are ready!
+echo ============================================
+echo.
+
 :: Parse command line arguments
 set BUILD_DEBUG=1
 set BUILD_RELEASE=1
