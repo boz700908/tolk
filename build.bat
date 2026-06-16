@@ -17,16 +17,14 @@ set RETRY_COUNT=0
 set MAX_RETRIES=3
 
 :CHOCO_LOOP_START
-echo [DEBUG] CHOCO_INSTALL called with args: %*
-choco install %* -y
+choco install %* -y >nul 2>&1
 set EXIT_CODE=%errorlevel%
-echo [DEBUG] CHOCO_INSTALL exit code: %EXIT_CODE%
 if %EXIT_CODE% equ 0 endlocal & exit /b 0
 
 set /a RETRY_COUNT+=1
 if %RETRY_COUNT% geq %MAX_RETRIES% endlocal & exit /b %EXIT_CODE%
 
-timeout /t 2 /nobreak
+timeout /t 2 /nobreak >nul
 goto CHOCO_LOOP_START
 
 :: ============================================
@@ -38,6 +36,18 @@ goto CHOCO_LOOP_START
 setlocal
 set CURRENT_VER=%~1
 set REQUIRED_VER=%~2
+
+:: Sanitize version: remove all non-numeric characters except dots
+set SANITIZED_VER=
+:VERSION_SANITIZE_LOOP
+if "%CURRENT_VER%"=="" goto VERSION_SANITIZE_DONE
+set CHAR=%CURRENT_VER:~0,1%
+echo.%CHAR% | findstr /r "[0-9.]" >nul
+if %errorlevel% equ 0 set SANITIZED_VER=%SANITIZED_VER%%CHAR%
+set CURRENT_VER=%CURRENT_VER:~1%
+goto VERSION_SANITIZE_LOOP
+:VERSION_SANITIZE_DONE
+set CURRENT_VER=%SANITIZED_VER%
 
 :: Split version string into components
 for /f "tokens=1,2,3 delims=." %%a in ("%CURRENT_VER%") do (
@@ -66,15 +76,15 @@ if "%CUR_MAJOR%"=="1" if not "%CUR_MINOR%"=="" (
     set CUR_PATCH=0
 )
 
-:: Major version comparison with quote protection
+:: Major version comparison with full quote protection
 if "%CUR_MAJOR%" gtr "%REQ_MAJOR%" endlocal & exit /b 0
 if "%CUR_MAJOR%" lss "%REQ_MAJOR%" endlocal & exit /b 1
 
-:: Minor version comparison with quote protection
+:: Minor version comparison with full quote protection
 if "%CUR_MINOR%" gtr "%REQ_MINOR%" endlocal & exit /b 0
 if "%CUR_MINOR%" lss "%REQ_MINOR%" endlocal & exit /b 1
 
-:: Patch version comparison with quote protection
+:: Patch version comparison with full quote protection
 if "%CUR_PATCH%" geq "%REQ_PATCH%" (
     endlocal & exit /b 0
 ) else (
@@ -94,7 +104,7 @@ set CHOCO_PKG=%~4
 set IS_REQUIRED=%~5
 
 :: Check if tool exists
-where %TOOL_NAME% >nul 2>&1
+where "%TOOL_NAME%" >nul 2>&1
 if %errorlevel% neq 0 (
     echo [%STEP%/7] %TOOL_NAME% not found, installing...
     call :CHOCO_INSTALL %CHOCO_PKG%
@@ -113,21 +123,12 @@ if %errorlevel% neq 0 (
 )
 
 :: Extract version number
-echo [DEBUG:%TOOL_NAME%] Running: %CHECK_CMD%
 for /f "tokens=*" %%v in ('%CHECK_CMD% 2^>^&1') do set VERSION_OUTPUT=%%v
-echo [DEBUG:%TOOL_NAME%] Version output: %VERSION_OUTPUT%
 
 :: Parse version number from output (generic pattern)
 for /f "tokens=2 delims= " %%a in ("%VERSION_OUTPUT%") do set DETECTED_VERSION=%%a
-echo [DEBUG:%TOOL_NAME%] Parsed version: %DETECTED_VERSION%
-
-:: Clean non-numeric characters from version
-for /f "tokens=1 delims=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-," %%a in ("%DETECTED_VERSION%") do set DETECTED_VERSION=%%a
-echo [DEBUG:%TOOL_NAME%] Cleaned version: %DETECTED_VERSION%
-echo [DEBUG:%TOOL_NAME%] Required version: %MIN_VERSION%
 
 :: Version comparison - FORCE UPGRADE for ALL tools
-echo [DEBUG:%TOOL_NAME%] Calling VERSION_COMPARE...
 call :VERSION_COMPARE "%DETECTED_VERSION%" "%MIN_VERSION%"
 if %errorlevel% equ 1 (
     echo [%STEP%/7] %TOOL_NAME% %DETECTED_VERSION% ^< %MIN_VERSION%, upgrading...
