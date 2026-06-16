@@ -1,7 +1,7 @@
 @echo off
 setlocal
 echo ============================================
-echo  Tolk Build Script - x86 + x64 (Debug + Release)
+echo  Tolk Build Script - x86 + x64 + ARM64 (Debug + Release)
 echo ============================================
 echo [Preflight] Checking and installing required build tools...
 echo.
@@ -99,7 +99,7 @@ if "%1"=="release" set BUILD_DEBUG=0
 if "%1"=="debug" set BUILD_RELEASE=0
 :: x86 build
 echo.
-echo [1/8] Configuring x86...
+echo [1/11] Configuring x86...
 cmake -B build-x86 -A Win32
 if %errorlevel% neq 0 (
     echo ERROR: x86 configuration failed.
@@ -107,7 +107,7 @@ if %errorlevel% neq 0 (
 )
 if %BUILD_DEBUG%==1 (
 echo.
-echo [2/8] Building x86 Debug...
+echo [2/11] Building x86 Debug...
 cmake --build build-x86 --config Debug
 if %errorlevel% neq 0 (
     echo ERROR: x86 Debug build failed.
@@ -116,7 +116,7 @@ if %errorlevel% neq 0 (
 )
 if %BUILD_RELEASE%==1 (
 echo.
-echo [3/8] Building x86 Release...
+echo [3/11] Building x86 Release...
 cmake --build build-x86 --config Release
 if %errorlevel% neq 0 (
     echo ERROR: x86 Release build failed.
@@ -125,7 +125,7 @@ if %errorlevel% neq 0 (
 )
 :: x64 build
 echo.
-echo [4/8] Configuring x64...
+echo [4/11] Configuring x64...
 cmake -B build-x64 -A x64
 if %errorlevel% neq 0 (
     echo ERROR: x64 configuration failed.
@@ -133,7 +133,7 @@ if %errorlevel% neq 0 (
 )
 if %BUILD_DEBUG%==1 (
 echo.
-echo [5/8] Building x64 Debug...
+echo [5/11] Building x64 Debug...
 cmake --build build-x64 --config Debug
 if %errorlevel% neq 0 (
     echo ERROR: x64 Debug build failed.
@@ -142,13 +142,38 @@ if %errorlevel% neq 0 (
 )
 if %BUILD_RELEASE%==1 (
 echo.
-echo [6/8] Building x64 Release...
+echo [6/11] Building x64 Release...
 cmake --build build-x64 --config Release
 if %errorlevel% neq 0 (
     echo ERROR: x64 Release build failed.
     exit /b 1
 )
 )
+:: ARM64 build
+echo.
+echo [7/11] Configuring ARM64...
+cmake -B build-arm64 -A ARM64
+if %errorlevel% neq 0 (
+    echo WARNING: ARM64 toolchain not available, skipping ARM64 build.
+    goto skip_arm64
+)
+if %BUILD_DEBUG%==1 (
+echo.
+echo [8/11] Building ARM64 Debug...
+cmake --build build-arm64 --config Debug
+if %errorlevel% neq 0 (
+    echo WARNING: ARM64 Debug build failed, skipping.
+)
+)
+if %BUILD_RELEASE%==1 (
+echo.
+echo [9/11] Building ARM64 Release...
+cmake --build build-arm64 --config Release
+if %errorlevel% neq 0 (
+    echo WARNING: ARM64 Release build failed, skipping.
+)
+)
+:skip_arm64
 :: Assemble dist
 echo.
 echo ============================================
@@ -159,6 +184,8 @@ mkdir dist\x86\Debug
 mkdir dist\x86\Release
 mkdir dist\x64\Debug
 mkdir dist\x64\Release
+mkdir dist\arm64\Debug
+mkdir dist\arm64\Release
 :: x86 Debug output
 if %BUILD_DEBUG%==1 (
 if exist build-x86\dist\x86-Debug copy build-x86\dist\x86-Debug\* dist\x86\Debug\
@@ -175,6 +202,14 @@ if exist build-x64\dist\x64-Debug copy build-x64\dist\x64-Debug\* dist\x64\Debug
 if %BUILD_RELEASE%==1 (
 if exist build-x64\dist\x64-Release copy build-x64\dist\x64-Release\* dist\x64\Release\
 )
+:: ARM64 Debug output
+if %BUILD_DEBUG%==1 (
+if exist build-arm64\dist\arm64-Debug copy build-arm64\dist\arm64-Debug\* dist\arm64\Debug\
+)
+:: ARM64 Release output
+if %BUILD_RELEASE%==1 (
+if exist build-arm64\dist\arm64-Release copy build-arm64\dist\arm64-Release\* dist\arm64\Release\
+)
 :: .NET wrapper
 if exist build-x64\src\dotnet\TolkDotNet.dll copy build-x64\src\dotnet\TolkDotNet.dll dist\
 :: Java JAR
@@ -187,15 +222,21 @@ echo.
 echo ============================================
 echo  Build complete!
 echo  Output: dist\
-echo    dist\x86\Debug\    - 32-bit Debug DLLs (with file logging + console output)
-echo    dist\x86\Release\  - 32-bit Release DLLs
-echo    dist\x64\Debug\    - 64-bit Debug DLLs (with file logging + console output)
-echo    dist\x64\Release\  - 64-bit Release DLLs
+echo    dist\x86\Debug\     - 32-bit x86 Debug DLLs
+echo    dist\x86\Release\   - 32-bit x86 Release DLLs
+echo    dist\x64\Debug\     - 64-bit x64 Debug DLLs
+echo    dist\x64\Release\   - 64-bit x64 Release DLLs
+echo    dist\arm64\Debug\   - ARM64 Debug DLLs (NVDA only)
+echo    dist\arm64\Release\ - ARM64 Release DLLs (NVDA only)
 echo.
 echo  Debug Build Features:
 echo    - Tolk_Debug.log written to calling process working directory
 echo    - ERR/WRN messages printed to console (colored)
 echo    - All logs sent to OutputDebugString
+echo.
+echo  ARM64 Notes:
+echo    - Only NVDA screen reader supports ARM64 natively
+echo    - Other drivers (JAWS, SAPI, etc.) will auto-disable on ARM64
 echo.
 echo  Usage:
 echo    build.bat          - Build both Debug and Release

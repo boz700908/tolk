@@ -12,7 +12,9 @@ option(TOLK_BUILD_JAVA "Build Java JAR" ON)
 option(TOLK_BUILD_DOCS "Build documentation" ON)
 
 # Detect architecture for libs directory
-if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+if(CMAKE_GENERATOR_PLATFORM MATCHES "ARM64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
+  set(TOLK_ARCH "arm64")
+elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
   set(TOLK_ARCH "x64")
 else()
   set(TOLK_ARCH "x86")
