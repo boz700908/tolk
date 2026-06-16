@@ -16,7 +16,7 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND} -E make_directory ${JAVA_CLASS_DIR}
   COMMAND ${Java_JAVAC_EXECUTABLE}
     -source 8 -target 8
-    -Xlint:all
+    -Xlint:all -Xlint:-options
     -g:none -O
     -d ${JAVA_CLASS_DIR}
     ${JAVA_SOURCE}
