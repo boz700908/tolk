@@ -107,18 +107,30 @@ add_custom_command(TARGET Tolk POST_BUILD
 # Python wrapper bytecode compilation
 add_subdirectory(python)
 
-# Copy all language wrappers to dist directory
-set(TOLK_WRAPPER_FILES
-  "${CMAKE_SOURCE_DIR}/src/autoit/Tolk.au3"
-  "${CMAKE_SOURCE_DIR}/src/purebasic/Tolk.pb"
-  "${CMAKE_SOURCE_DIR}/src/python/Tolk.py"
+# Copy script wrappers to separate language directories
+add_custom_command(TARGET Tolk POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E make_directory
+    "$<$<CONFIG:Debug>:${TOLK_DIST_DIR_DEBUG}>$<$<CONFIG:Release>:${TOLK_DIST_DIR_RELEASE}>/autoit"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/src/autoit/Tolk.au3"
+    "$<$<CONFIG:Debug>:${TOLK_DIST_DIR_DEBUG}>$<$<CONFIG:Release>:${TOLK_DIST_DIR_RELEASE}>/autoit/"
+  COMMENT "Copying AutoIt wrapper to dist/${TOLK_ARCH}-$<CONFIG>/autoit"
 )
 
 add_custom_command(TARGET Tolk POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E make_directory
-    "$<$<CONFIG:Debug>:${TOLK_DIST_DIR_DEBUG}>$<$<CONFIG:Release>:${TOLK_DIST_DIR_RELEASE}>/wrappers"
+    "$<$<CONFIG:Debug>:${TOLK_DIST_DIR_DEBUG}>$<$<CONFIG:Release>:${TOLK_DIST_DIR_RELEASE}>/purebasic"
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    ${TOLK_WRAPPER_FILES}
-    "$<$<CONFIG:Debug>:${TOLK_DIST_DIR_DEBUG}>$<$<CONFIG:Release>:${TOLK_DIST_DIR_RELEASE}>/wrappers/"
-  COMMENT "Copying language wrappers to dist/${TOLK_ARCH}-$<CONFIG>/wrappers"
+    "${CMAKE_SOURCE_DIR}/src/purebasic/Tolk.pb"
+    "$<$<CONFIG:Debug>:${TOLK_DIST_DIR_DEBUG}>$<$<CONFIG:Release>:${TOLK_DIST_DIR_RELEASE}>/purebasic/"
+  COMMENT "Copying PureBasic wrapper to dist/${TOLK_ARCH}-$<CONFIG>/purebasic"
+)
+
+add_custom_command(TARGET Tolk POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E make_directory
+    "$<$<CONFIG:Debug>:${TOLK_DIST_DIR_DEBUG}>$<$<CONFIG:Release>:${TOLK_DIST_DIR_RELEASE}>/python"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/src/python/Tolk.py"
+    "$<$<CONFIG:Debug>:${TOLK_DIST_DIR_DEBUG}>$<$<CONFIG:Release>:${TOLK_DIST_DIR_RELEASE}>/python/"
+  COMMENT "Copying Python wrapper to dist/${TOLK_ARCH}-$<CONFIG>/python"
 )

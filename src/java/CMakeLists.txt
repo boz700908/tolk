@@ -39,14 +39,14 @@ add_custom_command(
 
 add_custom_target(TolkJar ALL DEPENDS ${JAR_OUTPUT})
 
-# Copy Java wrapper to dist wrappers directory
+# Copy Java wrapper to dist java directory
 add_custom_command(TARGET TolkJar POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E make_directory
-    "$<$<CONFIG:Debug>:${CMAKE_BINARY_DIR}/dist/${TOLK_ARCH}-Debug>$<$<CONFIG:Release>:${CMAKE_BINARY_DIR}/dist/${TOLK_ARCH}-Release>/wrappers"
+    "$<$<CONFIG:Debug>:${CMAKE_BINARY_DIR}/dist/${TOLK_ARCH}-Debug>$<$<CONFIG:Release>:${CMAKE_BINARY_DIR}/dist/${TOLK_ARCH}-Release>/java"
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
     ${JAR_OUTPUT}
-    "$<$<CONFIG:Debug>:${CMAKE_BINARY_DIR}/dist/${TOLK_ARCH}-Debug>$<$<CONFIG:Release>:${CMAKE_BINARY_DIR}/dist/${TOLK_ARCH}-Release>/wrappers/"
-  COMMENT "Copying Java wrapper to dist/${TOLK_ARCH}-$<CONFIG>/wrappers"
+    "$<$<CONFIG:Debug>:${CMAKE_BINARY_DIR}/dist/${TOLK_ARCH}-Debug>$<$<CONFIG:Release>:${CMAKE_BINARY_DIR}/dist/${TOLK_ARCH}-Release>/java/"
+  COMMENT "Copying Java wrapper to dist/${TOLK_ARCH}-$<CONFIG>/java"
 )
 
 install(FILES ${JAR_OUTPUT} DESTINATION bin OPTIONAL)
