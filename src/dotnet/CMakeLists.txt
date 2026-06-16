@@ -22,4 +22,15 @@ add_custom_command(
 )
 
 add_custom_target(TolkDotNet ALL DEPENDS ${DOTNET_OUTPUT})
+
+# Copy .NET wrapper to dist wrappers directory
+add_custom_command(TARGET TolkDotNet POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E make_directory
+    "$<$<CONFIG:Debug>:${CMAKE_BINARY_DIR}/dist/${TOLK_ARCH}-Debug>$<$<CONFIG:Release>:${CMAKE_BINARY_DIR}/dist/${TOLK_ARCH}-Release>/wrappers"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    ${DOTNET_OUTPUT}
+    "$<$<CONFIG:Debug>:${CMAKE_BINARY_DIR}/dist/${TOLK_ARCH}-Debug>$<$<CONFIG:Release>:${CMAKE_BINARY_DIR}/dist/${TOLK_ARCH}-Release>/wrappers/"
+  COMMENT "Copying .NET wrapper to dist/${TOLK_ARCH}-$<CONFIG>/wrappers"
+)
+
 install(FILES ${DOTNET_OUTPUT} DESTINATION bin OPTIONAL)

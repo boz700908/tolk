@@ -83,15 +83,21 @@ build.bat release  # Build Release only (x86 + x64 + ARM64)
 ### Output Directory Structure
 ```
 dist/
-├── x86/
-│   ├── Debug/      # 32-bit x86 Debug DLL
-│   └── Release/    # 32-bit x86 Release DLL
-├── x64/
-│   ├── Debug/      # 64-bit x64 Debug DLL
-│   └── Release/    # 64-bit x64 Release DLL
-└── arm64/
-    ├── Debug/      # ARM64 Debug DLL (NVDA only)
-    └── Release/    # ARM64 Release DLL (NVDA only)
+├── x86-Debug/      # 32-bit x86 Debug build
+│   ├── Tolk.dll
+│   ├── Tolk.lib
+│   ├── [dependency DLLs]
+│   └── wrappers/
+│       ├── TolkDotNet.dll   # .NET wrapper
+│       ├── Tolk.jar         # Java wrapper
+│       ├── Tolk.au3         # AutoIt wrapper
+│       ├── Tolk.pb          # PureBasic wrapper
+│       └── Tolk.py          # Python wrapper
+├── x86-Release/    # 32-bit x86 Release build
+├── x64-Debug/      # 64-bit x64 Debug build
+├── x64-Release/    # 64-bit x64 Release build
+├── arm64-Debug/    # ARM64 Debug build (NVDA only)
+└── arm64-Release/  # ARM64 Release build (NVDA only)
 ```
 ## Debugging and Logging
 Tolk includes a unified logging system that helps with debugging and troubleshooting.
