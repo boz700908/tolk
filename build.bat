@@ -122,7 +122,7 @@ if %errorlevel% neq 0 (
     endlocal & exit /b 0
 )
 
-:: Extract version number - FIX: take ONLY FIRST LINE of output
+:: Extract version number - FIX: take ONLY FIRST LINE of output (using delayed expansion)
 set VERSION_OUTPUT=
 for /f "tokens=*" %%v in ('%CHECK_CMD% 2^>^&1') do (
     if not defined VERSION_OUTPUT set VERSION_OUTPUT=%%v
@@ -134,7 +134,7 @@ for /f "tokens=3 delims= " %%a in ("%VERSION_OUTPUT%") do set DETECTED_VERSION=%
 :: Version comparison - FORCE UPGRADE for ALL tools
 call :VERSION_COMPARE "%DETECTED_VERSION%" "%MIN_VERSION%"
 if %errorlevel% equ 1 (
-    echo [%STEP%/7] %TOOL_NAME% %DETECTED_VERSION% is below %MIN_VERSION%, upgrading...
+    echo [%STEP%/7] %TOOL_NAME% %DETECTED_VERSION% is below minimum, upgrading...
     call :CHOCO_INSTALL %CHOCO_PKG%
     if !errorlevel! equ 0 (
         call RefreshEnv.cmd >nul 2>&1
@@ -287,13 +287,13 @@ if %errorlevel% neq 0 (
     )
     
     if !JAVA_MAJOR! lss 11 (
-        echo [%STEP%/7] Java !JAVA_MAJOR! is below 11 (no --release support), upgrading to OpenJDK 17...
+        echo [%STEP%/7] Java !JAVA_MAJOR! is below 11, upgrading to OpenJDK 17...
         call :CHOCO_INSTALL openjdk17
         if !errorlevel! equ 0 (
             call RefreshEnv.cmd >nul 2>&1
             echo [%STEP%/7] OpenJDK 17 installed successfully.
         ) else (
-            echo WARNING: Java upgrade failed. --release parameter may not work.
+            echo WARNING: Java upgrade failed. Release parameter may not work.
         )
     ) else (
         echo [%STEP%/7] Java !JAVA_MAJOR! OK
