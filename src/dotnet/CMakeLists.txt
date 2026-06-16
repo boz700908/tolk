@@ -1,12 +1,17 @@
-# Search for C# compiler
-# Prefer Roslyn from .NET SDK / Visual Studio Build Tools, fallback to .NET Framework csc
+# Search for C# compiler - prefer modern Roslyn from .NET SDK
+# .NET SDK is installed via GitHub Actions setup-dotnet, so Roslyn csc.exe is available
+# Fall back to .NET Framework csc for local builds without .NET SDK
 find_program(CSC csc
   PATHS
-    # Standard .NET Framework locations (most reliable, no wildcards)
+    # .NET SDK Roslyn compiler (modern C# 12+, installed by GitHub Actions)
+    $ENV{DOTNET_ROOT}/sdk/*/Roslyn/bincore
+    # Visual Studio Build Tools Roslyn
+    [=[C:/Program Files/Microsoft Visual Studio/2022/Enterprise/MSBuild/Current/Bin/Roslyn]=]
+    [=[C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/Roslyn]=]
+    # .NET Framework (legacy C# 5.0, fallback only)
     $ENV{WINDIR}/Microsoft.NET/Framework64/v4.0.30319
     $ENV{WINDIR}/Microsoft.NET/Framework/v4.0.30319
-    # Visual Studio locations (wildcards not supported in find_program PATHS)
-  DOC "C# compiler"
+  DOC "C# compiler (Roslyn preferred)"
 )
 
 if(NOT CSC)
@@ -19,13 +24,15 @@ message(STATUS "Found C# compiler: ${CSC}")
 set(DOTNET_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/Tolk.cs")
 set(DOTNET_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/TolkDotNet.dll")
 
-# Build with optimization, use compatible C# syntax
+# Use latest C# language features when Roslyn is available
+# Target framework remains .NET Framework 4.0 compatible
 add_custom_command(
   OUTPUT ${DOTNET_OUTPUT}
   COMMAND ${CSC} /nologo /optimize /target:library /warn:4
+    /langversion:latest
     "/out:${DOTNET_OUTPUT}" "${DOTNET_SOURCE}"
   DEPENDS ${DOTNET_SOURCE}
-  COMMENT "Building .NET wrapper (TolkDotNet.dll)"
+  COMMENT "Building .NET wrapper (TolkDotNet.dll) - C# latest"
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )
 

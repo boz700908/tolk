@@ -1,9 +1,12 @@
 /**
  *  Product:        Tolk
  *  File:           Tolk.cs
- *  Description:    .NET wrapper class (compatible with .NET Framework 4.0+)
+ *  Description:    .NET wrapper class (modern C# with Roslyn compiler)
  *  Copyright:      (c) 2014, Davy Kager <mail@davykager.nl>
  *  License:        LGPLv3
+ *
+ *  Compiler: .NET SDK 8.0+ Roslyn (C# 12+)
+ *  Runtime: .NET Framework 4.0+ compatible (system requirements unchanged)
  */
 using System;
 using System.Runtime.CompilerServices;
@@ -80,44 +83,44 @@ namespace DavyKager {
     // Prevent construction
     private Tolk() { }
 
-    // Performance: AggressiveInlining for small methods
+    // Modern C#: Expression-bodied members + AggressiveInlining for maximum performance
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Load() { Tolk_Load(); }
+    public static void Load() => Tolk_Load();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool IsLoaded() { return Tolk_IsLoaded(); }
+    public static bool IsLoaded() => Tolk_IsLoaded();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Unload() { Tolk_Unload(); }
+    public static void Unload() => Tolk_Unload();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void TrySAPI(bool trySAPI) { Tolk_TrySAPI(trySAPI); }
+    public static void TrySAPI(bool trySAPI) => Tolk_TrySAPI(trySAPI);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void PreferSAPI(bool preferSAPI) { Tolk_PreferSAPI(preferSAPI); }
+    public static void PreferSAPI(bool preferSAPI) => Tolk_PreferSAPI(preferSAPI);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static string DetectScreenReader() { return Marshal.PtrToStringUni(Tolk_DetectScreenReader()); }
+    public static string DetectScreenReader() => Marshal.PtrToStringUni(Tolk_DetectScreenReader());
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool HasSpeech() { return Tolk_HasSpeech(); }
+    public static bool HasSpeech() => Tolk_HasSpeech();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool HasBraille() { return Tolk_HasBraille(); }
+    public static bool HasBraille() => Tolk_HasBraille();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Output(string str, bool interrupt = false) { return Tolk_Output(str, interrupt); }
+    public static bool Output(string str, bool interrupt = false) => Tolk_Output(str, interrupt);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Speak(string str, bool interrupt = false) { return Tolk_Speak(str, interrupt); }
+    public static bool Speak(string str, bool interrupt = false) => Tolk_Speak(str, interrupt);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Braille(string str) { return Tolk_Braille(str); }
+    public static bool Braille(string str) => Tolk_Braille(str);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool IsSpeaking() { return Tolk_IsSpeaking(); }
+    public static bool IsSpeaking() => Tolk_IsSpeaking();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Silence() { return Tolk_Silence(); }
+    public static bool Silence() => Tolk_Silence();
   }
 }

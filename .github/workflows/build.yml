@@ -39,6 +39,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Setup .NET SDK (Roslyn C# compiler for modern C# features)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
       - name: Setup Pandoc
         uses: pandoc/actions/setup@v1
       - name: Configure CMake Project
