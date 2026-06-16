@@ -106,3 +106,19 @@ add_custom_command(TARGET Tolk POST_BUILD
 
 # Python wrapper bytecode compilation
 add_subdirectory(python)
+
+# Copy all language wrappers to dist directory
+set(TOLK_WRAPPER_FILES
+  "${CMAKE_SOURCE_DIR}/src/autoit/Tolk.au3"
+  "${CMAKE_SOURCE_DIR}/src/purebasic/Tolk.pb"
+  "${CMAKE_SOURCE_DIR}/src/python/Tolk.py"
+)
+
+add_custom_command(TARGET Tolk POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E make_directory
+    "$<$<CONFIG:Debug>:${TOLK_DIST_DIR_DEBUG}>$<$<CONFIG:Release>:${TOLK_DIST_DIR_RELEASE}>/wrappers"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    ${TOLK_WRAPPER_FILES}
+    "$<$<CONFIG:Debug>:${TOLK_DIST_DIR_DEBUG}>$<$<CONFIG:Release>:${TOLK_DIST_DIR_RELEASE}>/wrappers/"
+  COMMENT "Copying language wrappers to dist/${TOLK_ARCH}-$<CONFIG>/wrappers"
+)
