@@ -59,9 +59,8 @@ The following table lists the supported screen readers in the order in which the
     BoyPCReader     Yes      No        Yes      Yes   Yes   No
     SAPI            Yes      No        Yes      Yes   Yes   Partial*
 
-> **Note:** All screen readers that do not support ARM64 will run via x64 emulation
-
 ### Notes
+* All screen readers that do not support ARM64 will run via x64 emulation.
 * SuperNova is the only screen reader that does not have a 64-bit compatible API.
 * SuperNova has support for braille, but the API does not let you use it.
 * SuperNova can speak even if the user turned the voice off, but in that state interrupts will not work.
