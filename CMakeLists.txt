@@ -1,9 +1,26 @@
 cmake_minimum_required(VERSION 3.20)
 project(Tolk VERSION 2.0.0 LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+# Modern C++20 standard with Windows 7 runtime compatibility
+# C++20 features available, but generated binaries still compatible with Windows 7+
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Modern C11 standard
 set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
+
+# MSVC: Enable modern compiler features, strict conformance, Windows 7 compatible
+if(MSVC)
+  # Enable all modern C++20 features
+  add_compile_options(/permissive- /Zc:__cplusplus /Zc:preprocessor)
+  # Optimization flags
+  add_compile_options(/Oi /Ot /GL)
+  # Windows 7 compatibility (target subsystem version)
+  add_compile_definitions(_WIN32_WINNT=0x0601 WINVER=0x0601)
+endif()
 
 # Options
 option(TOLK_BUILD_JNI "Build with Java Native Interface support" ON)

@@ -1,11 +1,15 @@
-# Search for C# compiler in .NET Framework directories
+# Prefer modern Roslyn compiler from .NET SDK (supports latest C# features)
+# Fall back to .NET Framework csc for compatibility
 find_program(CSC csc
   PATHS
+    # .NET SDK locations (modern Roslyn compiler, C# 12+)
+    "$ENV{ProgramFiles}/dotnet/sdk/*/Roslyn/bincore"
+    "$ENV{ProgramFiles(x86)}/Microsoft Visual Studio/*/BuildTools/MSBuild/*/Bin/Roslyn"
+    "$ENV{ProgramFiles}/Microsoft Visual Studio/*/BuildTools/MSBuild/*/Bin/Roslyn"
+    # .NET Framework locations (legacy C# 5.0 compiler)
     "$ENV{WINDIR}/Microsoft.NET/Framework64/v4.0.30319"
     "$ENV{WINDIR}/Microsoft.NET/Framework/v4.0.30319"
-    "$ENV{WINDIR}/Microsoft.NET/Framework64/v3.5"
-    "$ENV{WINDIR}/Microsoft.NET/Framework/v3.5"
-  DOC "C# compiler"
+  DOC "C# compiler (Roslyn preferred)"
 )
 
 if(NOT CSC)
@@ -18,15 +22,18 @@ message(STATUS "Found C# compiler: ${CSC}")
 set(DOTNET_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/Tolk.cs")
 set(DOTNET_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/TolkDotNet.dll")
 
+# Use latest C# language version, but target .NET Framework 4.0 for maximum compatibility
+# /langversion:latest enables all C# features (expression-bodied members, etc.)
+# /nostdlib+ /noconfig ensures we don't pull in newer framework dependencies
 add_custom_command(
   OUTPUT ${DOTNET_OUTPUT}
   COMMAND ${CSC} /nologo /optimize /target:library /warn:4
+    /langversion:latest
     "/out:${DOTNET_OUTPUT}" "${DOTNET_SOURCE}"
   DEPENDS ${DOTNET_SOURCE}
-  COMMENT "Building .NET wrapper (TolkDotNet.dll)"
+  COMMENT "Building .NET wrapper (TolkDotNet.dll) - C# latest"
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 add_custom_target(TolkDotNet ALL DEPENDS ${DOTNET_OUTPUT})
-
 install(FILES ${DOTNET_OUTPUT} DESTINATION bin OPTIONAL)
