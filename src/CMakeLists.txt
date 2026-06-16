@@ -103,3 +103,6 @@ add_custom_command(TARGET Tolk POST_BUILD
     "$<$<CONFIG:Debug>:${TOLK_DIST_DIR_DEBUG}>$<$<CONFIG:Release>:${TOLK_DIST_DIR_RELEASE}>/"
   COMMENT "Copying libs/${TOLK_ARCH} dependencies to dist/${TOLK_ARCH}-$<CONFIG>"
 )
+
+# Python wrapper bytecode compilation
+add_subdirectory(python)
