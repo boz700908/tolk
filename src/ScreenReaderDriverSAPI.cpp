@@ -169,9 +169,6 @@ void ScreenReaderDriverSAPI::Initialize() {
 
     TOLK_LOG_INFO("SAPI: COM instance created successfully (SAPI 5.4 mode)");
 
-    // Windows 10/11 optimization: Set highest priority for accessibility
-    controller->SetPriority(SPRI_ALERT);
-
     ReleaseSRWLockExclusive(&srwLock);
 }
 
