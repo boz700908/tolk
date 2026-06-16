@@ -6,22 +6,27 @@ echo ============================================
 echo [Preflight] Checking and installing required build tools...
 echo.
 
+echo [DEBUG] Line 1: Before goto MAIN
 goto :MAIN
 
 :: ============================================
 :: Helper 1: Chocolatey install/upgrade with retry mechanism
 :: ============================================
 :CHOCO_INSTALL
+echo [DEBUG] Entering CHOCO_INSTALL
 setlocal
 set RETRY_COUNT=0
 set MAX_RETRIES=3
 
 :CHOCO_LOOP_START
+echo [DEBUG] CHOCO_LOOP_START, args: %*
 choco install %* -y >nul 2>&1
 set EXIT_CODE=%errorlevel%
+echo [DEBUG] choco exit code: %EXIT_CODE%
 if %EXIT_CODE% equ 0 endlocal & exit /b 0
 
 set /a RETRY_COUNT+=1
+echo [DEBUG] RETRY_COUNT: %RETRY_COUNT%
 if %RETRY_COUNT% geq %MAX_RETRIES% endlocal & exit /b %EXIT_CODE%
 
 timeout /t 2 /nobreak >nul
@@ -33,11 +38,15 @@ goto CHOCO_LOOP_START
 :: Returns: errorlevel 0 = meets requirement, 1 = does not meet
 :: ============================================
 :VERSION_COMPARE
+echo [DEBUG] Entering VERSION_COMPARE
 setlocal
 set CURRENT_VER=%~1
 set REQUIRED_VER=%~2
+echo [DEBUG] CURRENT_VER: %CURRENT_VER%
+echo [DEBUG] REQUIRED_VER: %REQUIRED_VER%
 
 :: Sanitize version: remove all non-numeric characters except dots
+echo [DEBUG] Starting sanitization
 set SANITIZED_VER=
 :VERSION_SANITIZE_LOOP
 if "%CURRENT_VER%"=="" goto VERSION_SANITIZE_DONE
@@ -48,8 +57,10 @@ set CURRENT_VER=%CURRENT_VER:~1%
 goto VERSION_SANITIZE_LOOP
 :VERSION_SANITIZE_DONE
 set CURRENT_VER=%SANITIZED_VER%
+echo [DEBUG] Sanitized: %CURRENT_VER%
 
 :: Split version string into components
+echo [DEBUG] Splitting version
 for /f "tokens=1,2,3 delims=." %%a in ("%CURRENT_VER%") do (
     set CUR_MAJOR=%%a
     set CUR_MINOR=%%b
@@ -60,6 +71,7 @@ for /f "tokens=1,2,3 delims=." %%a in ("%REQUIRED_VER%") do (
     set REQ_MINOR=%%b
     set REQ_PATCH=%%c
 )
+echo [DEBUG] Split done
 
 :: Handle empty values
 if not defined CUR_MAJOR set CUR_MAJOR=0
@@ -68,6 +80,7 @@ if not defined CUR_PATCH set CUR_PATCH=0
 if not defined REQ_MAJOR set REQ_MAJOR=0
 if not defined REQ_MINOR set REQ_MINOR=0
 if not defined REQ_PATCH set REQ_PATCH=0
+echo [DEBUG] Empty values handled
 
 :: Remove Java version prefix (e.g., "1." from "1.8.0")
 if "%CUR_MAJOR%"=="1" if not "%CUR_MINOR%"=="" (
@@ -75,16 +88,20 @@ if "%CUR_MAJOR%"=="1" if not "%CUR_MINOR%"=="" (
     set CUR_MINOR=%CUR_PATCH%
     set CUR_PATCH=0
 )
+echo [DEBUG] Java prefix handled
 
 :: Major version comparison with full quote protection
+echo [DEBUG] Comparing major: %CUR_MAJOR% vs %REQ_MAJOR%
 if "%CUR_MAJOR%" gtr "%REQ_MAJOR%" endlocal & exit /b 0
 if "%CUR_MAJOR%" lss "%REQ_MAJOR%" endlocal & exit /b 1
 
 :: Minor version comparison with full quote protection
+echo [DEBUG] Comparing minor: %CUR_MINOR% vs %REQ_MINOR%
 if "%CUR_MINOR%" gtr "%REQ_MINOR%" endlocal & exit /b 0
 if "%CUR_MINOR%" lss "%REQ_MINOR%" endlocal & exit /b 1
 
 :: Patch version comparison with full quote protection
+echo [DEBUG] Comparing patch: %CUR_PATCH% vs %REQ_PATCH%
 if "%CUR_PATCH%" geq "%REQ_PATCH%" (
     endlocal & exit /b 0
 ) else (
@@ -96,14 +113,20 @@ if "%CUR_PATCH%" geq "%REQ_PATCH%" (
 :: Usage: call :CHECK_TOOL "tool_name" "check_command" "min_version" "choco_pkg" "is_required"
 :: ============================================
 :CHECK_TOOL
+echo [DEBUG] Entering CHECK_TOOL
 setlocal
 set TOOL_NAME=%~1
 set CHECK_CMD=%~2
 set MIN_VERSION=%~3
 set CHOCO_PKG=%~4
 set IS_REQUIRED=%~5
+echo [DEBUG] TOOL_NAME: %TOOL_NAME%
+echo [DEBUG] CHECK_CMD: %CHECK_CMD%
+echo [DEBUG] MIN_VERSION: %MIN_VERSION%
+echo [DEBUG] CHOCO_PKG: %CHOCO_PKG%
 
 :: Check if tool exists
+echo [DEBUG] Checking if tool exists
 where "%TOOL_NAME%" >nul 2>&1
 if %errorlevel% neq 0 (
     echo [%STEP%/7] %TOOL_NAME% not found, installing...
@@ -121,15 +144,21 @@ if %errorlevel% neq 0 (
     )
     endlocal & exit /b 0
 )
+echo [DEBUG] Tool exists
 
 :: Extract version number
+echo [DEBUG] Extracting version
 for /f "tokens=*" %%v in ('%CHECK_CMD% 2^>^&1') do set VERSION_OUTPUT=%%v
+echo [DEBUG] VERSION_OUTPUT: %VERSION_OUTPUT%
 
 :: Parse version number from output (generic pattern)
 for /f "tokens=2 delims= " %%a in ("%VERSION_OUTPUT%") do set DETECTED_VERSION=%%a
+echo [DEBUG] DETECTED_VERSION: %DETECTED_VERSION%
 
 :: Version comparison - FORCE UPGRADE for ALL tools
+echo [DEBUG] Calling VERSION_COMPARE
 call :VERSION_COMPARE "%DETECTED_VERSION%" "%MIN_VERSION%"
+echo [DEBUG] VERSION_COMPARE returned: %errorlevel%
 if %errorlevel% equ 1 (
     echo [%STEP%/7] %TOOL_NAME% %DETECTED_VERSION% ^< %MIN_VERSION%, upgrading...
     call :CHOCO_INSTALL %CHOCO_PKG%
@@ -148,11 +177,13 @@ endlocal & exit /b 0
 :: MAIN SCRIPT ENTRY
 :: ============================================
 :MAIN
+echo [DEBUG] Entering MAIN
 
 :: ============================================
 :: Step 1: Auto-install Chocolatey (Windows package manager)
 :: ============================================
 set STEP=1
+echo [DEBUG] Step 1: Chocolatey
 where choco >nul 2>&1
 if %errorlevel% neq 0 (
     echo [%STEP%/7] Chocolatey not found, installing...
@@ -172,12 +203,14 @@ if exist "C:\ProgramData\chocolatey\bin\RefreshEnv.cmd" (
 :: Step 2: CMake >= 3.20 (REQUIRED)
 :: ============================================
 set STEP=2
+echo [DEBUG] Step 2: CMake
 call :CHECK_TOOL "cmake" "cmake --version" "3.20.0" "cmake" "1"
 
 :: ============================================
 :: Step 3: Visual Studio 2022 Build Tools (REQUIRED, MSBuild >= 17.0)
 :: ============================================
 set STEP=3
+echo [DEBUG] Step 3: MSBuild
 where msbuild >nul 2>&1
 if %errorlevel% neq 0 (
     echo [%STEP%/7] MSBuild / Visual Studio Build Tools not found, installing...
@@ -221,12 +254,14 @@ if %errorlevel% neq 0 (
 :: Step 4: Pandoc >= 2.18 (REQUIRED - force version check)
 :: ============================================
 set STEP=4
+echo [DEBUG] Step 4: Pandoc
 call :CHECK_TOOL "pandoc" "pandoc --version" "2.18.0" "pandoc" "1"
 
 :: ============================================
 :: Step 5: .NET SDK (REQUIRED)
 :: ============================================
 set STEP=5
+echo [DEBUG] Step 5: .NET SDK
 where dotnet >nul 2>&1
 if %errorlevel% neq 0 (
     echo [%STEP%/7] .NET SDK not found, installing...
@@ -258,6 +293,7 @@ if exist "src\dotnet\TolkDotNet.csproj" (
 :: Step 6: Java >= 11 (REQUIRED - supports --release parameter)
 :: ============================================
 set STEP=6
+echo [DEBUG] Step 6: Java
 where java >nul 2>&1
 if %errorlevel% neq 0 (
     echo [%STEP%/7] Java not found, installing OpenJDK 17...
@@ -301,6 +337,7 @@ if %errorlevel% neq 0 (
 :: Step 7: Ninja >= 1.10 (REQUIRED - force version check)
 :: ============================================
 set STEP=7
+echo [DEBUG] Step 7: Ninja
 call :CHECK_TOOL "ninja" "ninja --version" "1.10.0" "ninja" "1"
 
 echo.
