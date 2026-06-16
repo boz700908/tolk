@@ -6,6 +6,8 @@ echo ============================================
 echo [Preflight] Checking and installing required build tools...
 echo.
 
+goto :MAIN
+
 :: ============================================
 :: Helper 1: Chocolatey install/upgrade with retry mechanism
 :: ============================================
@@ -15,16 +17,14 @@ set RETRY_COUNT=0
 set MAX_RETRIES=3
 
 :CHOCO_LOOP_START
-echo [CHOCO_INSTALL] Running: choco install %* -y
-choco install %* -y
+choco install %* -y >nul 2>&1
 set EXIT_CODE=%errorlevel%
 if %EXIT_CODE% equ 0 endlocal & exit /b 0
 
 set /a RETRY_COUNT+=1
 if %RETRY_COUNT% geq %MAX_RETRIES% endlocal & exit /b %EXIT_CODE%
 
-echo   Retry %RETRY_COUNT%/%MAX_RETRIES%...
-timeout /t 2 /nobreak
+timeout /t 2 /nobreak >nul
 goto CHOCO_LOOP_START
 
 :: ============================================
@@ -133,6 +133,11 @@ if %errorlevel% equ 1 (
     echo [%STEP%/7] %TOOL_NAME% %DETECTED_VERSION% (>= %MIN_VERSION%) - OK
 )
 endlocal & exit /b 0
+
+:: ============================================
+:: MAIN SCRIPT ENTRY
+:: ============================================
+:MAIN
 
 :: ============================================
 :: Step 1: Auto-install Chocolatey (Windows package manager)
