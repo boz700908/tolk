@@ -65,12 +65,12 @@ bool ScreenReaderDriverZDSR::Silence() {
 }
 bool ScreenReaderDriverZDSR::IsSpeaking() {
   // State 3 = ZDSR_STATE_SPEAKING (actively speaking)
-  // Per official docs: 3 = 正在朗读, 4 = 没有朗读
+  // Per official docs: 3 = speaking, 4 = not speaking
   if (zdsrGetSpeakState) return (zdsrGetSpeakState() == ZDSR_STATE_SPEAKING);
   return false;
 }
 bool ScreenReaderDriverZDSR::IsActive() {
-  // 性能优化：先检查缓存（100ms超时）
+  // Performance: Check cache first (100ms timeout)
   DWORD currentTime = GetTickCount();
   if ((currentTime - lastIsActiveTime) < 100) {
     return cachedIsActive;

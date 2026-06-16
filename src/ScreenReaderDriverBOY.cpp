@@ -25,7 +25,7 @@ void __stdcall ScreenReaderDriverBOY::SpeakCompleteCallback(int reason)
 ScreenReaderDriverBOY::ScreenReaderDriverBOY()
     : ScreenReaderDriver(L"BoyPCReader", true, false),
       controller(nullptr),
-      srwLock(SRWLOCK_INIT),  // SRWLock静态初始化
+      srwLock(SRWLOCK_INIT),  // SRWLock static initialization
       isSpeaking(0),
       speakCompleteReason(0),
       lastIsActiveTime(0),
@@ -89,7 +89,7 @@ ScreenReaderDriverBOY::~ScreenReaderDriverBOY()
         controller = nullptr;
     }
     ReleaseSRWLockExclusive(&srwLock);
-    // SRWLock不需要销毁
+    // SRWLock does not need destruction
 }
 bool ScreenReaderDriverBOY::Speak(const wchar_t* str, bool interrupt)
 {
@@ -142,7 +142,7 @@ bool ScreenReaderDriverBOY::Silence()
 }
 bool ScreenReaderDriverBOY::IsActive()
 {
-    // 性能优化：先检查缓存（100ms超时）
+    // Performance: Check cache first (100ms timeout)
     DWORD currentTime = GetTickCount();
     if ((currentTime - lastIsActiveTime) < CACHE_TIMEOUT_MS) {
         return cachedIsActive;

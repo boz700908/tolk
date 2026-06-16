@@ -52,7 +52,7 @@ bool ScreenReaderDriverWE::Silence() {
   return SUCCEEDED(speech->Silence());
 }
 bool ScreenReaderDriverWE::IsActive() {
-  // 性能优化：先检查缓存（100ms超时）
+  // Performance: Check cache first (100ms timeout)
   DWORD currentTime = GetTickCount();
   if ((currentTime - lastIsActiveTime) < 100) {
     return cachedIsActive;

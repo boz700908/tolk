@@ -8,7 +8,7 @@
 package com.davykager.tolk;
 
 public final class Tolk {
-    // 性能优化：native方法声明为final，允许JVM进行激进内联优化
+    // Performance: native methods declared as final, allows JVM aggressive inlining optimization
     public static final native void load();
     public static final native boolean isLoaded();
     public static final native void unload();
@@ -26,7 +26,7 @@ public final class Tolk {
     // Prevent construction
     private Tolk() {}
 
-    // 性能优化：重载方法也声明为final，允许内联
+    // Performance: overloaded methods also declared as final, allows inlining
     public static final boolean output(String str) {
         return output(str, false);
     }
@@ -35,13 +35,13 @@ public final class Tolk {
         return speak(str, false);
     }
 
-    // 性能优化：静态初始化块优化，添加异常捕获和日志
+    // Performance: optimized static initializer, added exception handling
     static {
         try {
             System.loadLibrary("Tolk");
         } catch (UnsatisfiedLinkError e) {
-            // 静默失败，允许应用程序后续处理
-            // 避免类加载失败导致整个应用崩溃
+            // Silent failure, allows application to handle later
+            // Prevents class loading failure from crashing the entire application
         }
     }
 }

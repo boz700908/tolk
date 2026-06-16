@@ -7,14 +7,14 @@
  ##
 from ctypes import WinDLL, CFUNCTYPE, c_bool, c_wchar_p
 
-# 性能优化：使用WinDLL代替cdll，直接使用stdcall调用约定（匹配Tolk.dll的Cdecl）
-# 性能优化：use_errno=False, use_last_error=False 跳过错误检查，减少开销
+# Performance: Use WinDLL instead of cdll, direct stdcall calling convention (matches Tolk.dll Cdecl)
+# Performance: use_errno=False, use_last_error=False skip error checking, reduce overhead
 try:
     _tolk = WinDLL("Tolk", use_errno=False, use_last_error=False)
 except OSError:
     raise OSError("Failed to load Tolk.dll. Make sure it is in the DLL search path.")
 
-# 预定义所有函数原型，避免运行时类型检查开销
+# Predefine all function prototypes to avoid runtime type checking overhead
 _proto_load = CFUNCTYPE(None)
 load = _proto_load(("Tolk_Load", _tolk))
 
@@ -59,7 +59,7 @@ is_speaking = _proto_is_speaking(("Tolk_IsSpeaking", _tolk))
 _proto_silence = CFUNCTYPE(c_bool)
 silence = _proto_silence(("Tolk_Silence", _tolk))
 
-# 性能优化：明确导出列表，优化模块导入性能
+# Performance: Explicit export list, optimize module import performance
 __all__ = [
     'load', 'is_loaded', 'unload',
     'try_sapi', 'prefer_sapi',

@@ -13,9 +13,7 @@ ScreenReaderDriverSAPI::ScreenReaderDriverSAPI() :
     controller(nullptr),
     srwLock(SRWLOCK_INIT),
     isSpeaking(0),
-    recoverCount(0),
-    defaultRate(0),
-    defaultVolume(100)
+    recoverCount(0)
 {
     TOLK_LOG_INFO("SAPI: Initializing optimized fallback driver (Windows 10/11)");
     Initialize();
@@ -27,7 +25,7 @@ ScreenReaderDriverSAPI::~ScreenReaderDriverSAPI() {
 }
 
 bool ScreenReaderDriverSAPI::Recover() {
-    // 防止无限恢复：最多尝试3次
+    // Prevent infinite recovery: max 3 attempts
     if (InterlockedIncrement(&recoverCount) > 3) {
         TOLK_LOG_ERROR("SAPI: Recovery failed after 3 attempts, giving up");
         return false;
@@ -35,22 +33,18 @@ bool ScreenReaderDriverSAPI::Recover() {
 
     TOLK_LOG_WARN("SAPI: Attempting automatic recovery (%d/3)", recoverCount);
 
-    // 清理旧实例
+    // Clean up old instance
     if (controller) {
         controller->Release();
         controller = nullptr;
     }
 
-    // 重新初始化
+    // Reinitialize - uses system default voice settings automatically
     HRESULT hr = CoCreateInstance(CLSID_SpVoice, nullptr, CLSCTX_INPROC_SERVER, IID_ISpVoice, (void **)&controller);
     if (FAILED(hr)) {
         TOLK_LOG_ERROR("SAPI: Recovery failed, hr=0x%08X", hr);
         return false;
     }
-
-    // 恢复默认参数
-    controller->SetRate(defaultRate);
-    controller->SetVolume(defaultVolume);
 
     TOLK_LOG_INFO("SAPI: Recovery successful");
     InterlockedExchange(&recoverCount, 0);
@@ -65,16 +59,16 @@ bool ScreenReaderDriverSAPI::Speak(const wchar_t *str, bool interrupt) {
         return false;
     }
 
-    // 自动恢复机制
+    // Auto-recovery mechanism
     if (!controller && !Recover()) {
         ReleaseSRWLockExclusive(&srwLock);
         return false;
     }
 
-    // Windows 10/11 优化：使用 SAPI 5.4 最佳实践
-    // SPF_ASYNC: 异步语音，不阻塞调用线程
-    // SPF_IS_NOT_XML: 明确不是XML，避免解析开销
-    // SPF_PURGEBEFORESPEAK: 打断当前语音
+    // Windows 10/11 optimization: SAPI 5.4 best practices
+    // SPF_ASYNC: Async speech, does not block calling thread
+    // SPF_IS_NOT_XML: Explicitly not XML, avoids parsing overhead
+    // SPF_PURGEBEFORESPEAK: Interrupt current speech
     DWORD flags = SPF_ASYNC | SPF_IS_NOT_XML;
     if (interrupt) {
         flags |= SPF_PURGEBEFORESPEAK;
@@ -82,7 +76,7 @@ bool ScreenReaderDriverSAPI::Speak(const wchar_t *str, bool interrupt) {
 
     HRESULT hr = controller->Speak(str, flags, nullptr);
 
-    // 错误处理和自动恢复
+    // Error handling and auto-recovery
     if (FAILED(hr)) {
         TOLK_LOG_WARN("SAPI: Speak failed (hr=0x%08X), attempting recovery", hr);
         if (Recover()) {
@@ -100,7 +94,7 @@ bool ScreenReaderDriverSAPI::Speak(const wchar_t *str, bool interrupt) {
 }
 
 bool ScreenReaderDriverSAPI::IsSpeaking() {
-    // 快速路径：先检查原子变量
+    // Fast path: check atomic flag first
     if (InterlockedCompareExchange(&isSpeaking, 0, 0) == 0) {
         return false;
     }
@@ -139,11 +133,11 @@ bool ScreenReaderDriverSAPI::Silence() {
         return false;
     }
 
-    // Windows 10/11 优化：使用 Skip 方法代替空语音
-    // 这是 SAPI 5.4 推荐的停止语音方式
+    // Windows 10/11 optimization: Use Skip method instead of empty speech
+    // This is the recommended way to stop speech in SAPI 5.4
     HRESULT hr = controller->Skip(L"Sentence", 1000, nullptr);
     if (FAILED(hr)) {
-        // 回退到传统方式
+        // Fallback to traditional method
         const DWORD flags = SPF_ASYNC | SPF_IS_NOT_XML | SPF_PURGEBEFORESPEAK;
         hr = controller->Speak(nullptr, flags, nullptr);
     }
@@ -164,7 +158,8 @@ void ScreenReaderDriverSAPI::Initialize() {
         return;
     }
 
-    // Windows 10/11 优化：使用 CLSCTX_ALL 获得最佳兼容性
+    // Windows 10/11 optimization: Use CLSCTX_ALL for best compatibility
+    // ISpVoice automatically inherits system default voice, rate, and volume settings
     HRESULT hr = CoCreateInstance(CLSID_SpVoice, nullptr, CLSCTX_ALL, IID_ISpVoice, (void **)&controller);
     if (FAILED(hr)) {
         TOLK_LOG_WARN("SAPI: CoCreateInstance failed, hr=0x%08X", hr);
@@ -174,18 +169,8 @@ void ScreenReaderDriverSAPI::Initialize() {
 
     TOLK_LOG_INFO("SAPI: COM instance created successfully (SAPI 5.4 mode)");
 
-    // Windows 10/11 优化：设置默认语音参数
-    // 缓存默认值，用于恢复
-    controller->GetRate(&defaultRate);
-    controller->GetVolume(&defaultVolume);
-
-    // Windows 10/11 优化：设置语音优先级为最高
+    // Windows 10/11 optimization: Set highest priority for accessibility
     controller->SetPriority(SPRI_ALERT);
-
-    // Windows 10/11 优化：启用音频优化
-    controller->SetOutput(nullptr, TRUE);
-
-    TOLK_LOG_INFO("SAPI: Default rate=%d, volume=%d", defaultRate, defaultVolume);
 
     ReleaseSRWLockExclusive(&srwLock);
 }
@@ -196,10 +181,10 @@ void ScreenReaderDriverSAPI::Finalize() {
     if (controller) {
         TOLK_LOG_INFO("SAPI: Releasing COM instance");
 
-        // 优雅停止：先停止语音
+        // Graceful stop: Stop speech first
         controller->Skip(L"Sentence", 1000, nullptr);
 
-        // 然后释放
+        // Then release
         controller->Release();
         controller = nullptr;
     }

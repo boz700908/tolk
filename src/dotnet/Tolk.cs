@@ -12,8 +12,8 @@ using System.Security;
 
 namespace DavyKager {
   public sealed class Tolk {
-    // 性能优化：SuppressUnmanagedCodeSecurity 跳过安全检查，减少P/Invoke开销
-    // 性能优化：移除 SetLastError=true（Tolk DLL不设置Win32错误码，无需额外检查）
+    // Performance: SuppressUnmanagedCodeSecurity skips security checks, reduces P/Invoke overhead
+    // Performance: Removed SetLastError=true (Tolk DLL does not set Win32 error codes, no extra check needed)
     [SuppressUnmanagedCodeSecurity]
     [DllImport("Tolk.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
     private static extern void Tolk_Load();
@@ -81,7 +81,7 @@ namespace DavyKager {
     // Prevent construction
     private Tolk() { }
 
-    // 性能优化：AggressiveInlining 强制内联小方法，减少方法调用开销
+    // Performance: AggressiveInlining forces inlining of small methods, reduces method call overhead
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Load() => Tolk_Load();
 

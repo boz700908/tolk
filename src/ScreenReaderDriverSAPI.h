@@ -28,17 +28,13 @@ public:
 private:
     void Initialize();
     void Finalize();
-    bool Recover();  // 自动恢复机制
+    bool Recover();  // Auto-recovery mechanism
 
 private:
     ISpVoice *controller;
-    SRWLOCK srwLock;          // 性能优化：SRWLock代替CRITICAL_SECTION
-    volatile LONG isSpeaking; // 原子变量，快速检测语音状态
-    volatile LONG recoverCount; // 恢复计数，防止无限恢复
-
-    // SAPI 5.4 优化：语音参数缓存
-    LONG defaultRate;
-    LONG defaultVolume;
+    SRWLOCK srwLock;          // Performance: SRWLock instead of CRITICAL_SECTION
+    volatile LONG isSpeaking; // Atomic flag for fast speaking detection
+    volatile LONG recoverCount; // Recovery counter to prevent infinite loops
 };
 
 #endif // _SCREEN_READER_DRIVER_SAPI_H_

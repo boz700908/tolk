@@ -44,10 +44,10 @@ public:
     static void __stdcall SpeakCompleteCallback(int reason);
 private:
     HINSTANCE controller;
-    SRWLOCK srwLock;  // 性能优化：使用SRWLock代替CRITICAL_SECTION
+    SRWLOCK srwLock;  // Performance: SRWLock instead of CRITICAL_SECTION
     volatile LONG isSpeaking;
     volatile LONG speakCompleteReason;
-    // 性能优化：IsActive结果缓存（100ms超时，避免频繁跨进程调用）
+    // Performance: IsActive result cache (100ms timeout, avoids frequent cross-process calls)
     static const DWORD CACHE_TIMEOUT_MS = 100;
     DWORD lastIsActiveTime;
     bool cachedIsActive;
