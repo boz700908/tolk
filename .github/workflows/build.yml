@@ -126,15 +126,9 @@ jobs:
           rmdir /s /q dist\x64\Release\autoit dist\x64\Release\purebasic dist\x64\Release\python 2>nul
           rmdir /s /q dist\arm64\Debug\autoit dist\arm64\Debug\purebasic dist\arm64\Debug\python 2>nul
           rmdir /s /q dist\arm64\Release\autoit dist\arm64\Release\purebasic dist\arm64\Release\python 2>nul
-          :: .NET Wrapper - separate directory
-          mkdir dist\dotnet
-          xcopy /E /Y artifacts\tolk-dotnet\* dist\dotnet\
-          :: Also copy .NET wrapper to wrappers directory for unified access
+          :: .NET Wrapper - unified wrappers directory
           xcopy /E /Y artifacts\tolk-dotnet\* dist\wrappers\dotnet\
-          :: Java Wrapper - separate directory
-          mkdir dist\java
-          xcopy /E /Y artifacts\tolk-java\* dist\java\
-          :: Also copy Java wrapper to wrappers directory for unified access
+          :: Java Wrapper - unified wrappers directory
           xcopy /E /Y artifacts\tolk-java\* dist\wrappers\java\
           :: Documentation - separate directory
           mkdir dist\docs
