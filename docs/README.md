@@ -58,7 +58,9 @@ The following table lists the supported screen readers in the order in which the
     ZDSR            Yes      Yes       Yes      Yes   Yes   No
     BoyPCReader     Yes      No        Yes      Yes   Yes   No
     SAPI            Yes      No        Yes      Yes   Yes   Partial*
-*所有不支持 ARM64 的屏幕阅读器将通过 X64 仿真运行
+
+> **Note:** All screen readers that do not support ARM64 will run via x64 emulation
+
 ### Notes
 * SuperNova is the only screen reader that does not have a 64-bit compatible API.
 * SuperNova has support for braille, but the API does not let you use it.
