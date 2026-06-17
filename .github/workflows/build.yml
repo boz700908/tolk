@@ -40,8 +40,7 @@ jobs:
       - name: Setup Pandoc
         uses: pandoc/actions/setup@v1
       - name: Build with build.bat
-        shell: cmd
-        run: build.bat --${{ matrix.arch }} ${{ matrix.config }} --clean
+        run: cmd /c "build.bat --${{ matrix.arch }} ${{ matrix.config }} --clean"
       - name: Upload Architecture Artifact (${{ matrix.config }})
         uses: actions/upload-artifact@v7
         with:
