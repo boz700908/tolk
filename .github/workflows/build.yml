@@ -46,7 +46,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: tolk-${{ matrix.arch }}-${{ matrix.config }}
-          path: dist\**
+          path: dist\${{ matrix.arch }}\${{ matrix.config }}\**
       - name: Upload .NET Library
         if: matrix.arch == 'x64' && matrix.config == 'Release'
         uses: actions/upload-artifact@v7

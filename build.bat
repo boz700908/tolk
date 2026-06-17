@@ -391,7 +391,7 @@ if %BUILD_X86%==1 (
     echo  Building x86 (%BUILD_CONFIG%)
     echo ============================================
     echo [1/3] Configuring CMake x86...
-    cmake -B build-x86 -A Win32 -DCMAKE_BUILD_TYPE=%BUILD_CONFIG% 2>&1
+    cmake -B build-x86 -A Win32 2>&1
     if %errorlevel% equ 0 (
         echo [2/3] Building x86...
         cmake --build build-x86 --config %BUILD_CONFIG% 2>&1
@@ -414,7 +414,7 @@ if %BUILD_X64%==1 (
     echo  Building x64 (%BUILD_CONFIG%)
     echo ============================================
     echo [1/3] Configuring CMake x64...
-    cmake -B build-x64 -A x64 -DCMAKE_BUILD_TYPE=%BUILD_CONFIG% 2>&1
+    cmake -B build-x64 -A x64 2>&1
     if %errorlevel% equ 0 (
         echo [2/3] Building x64...
         cmake --build build-x64 --config %BUILD_CONFIG% 2>&1
@@ -437,7 +437,7 @@ if %BUILD_ARM64%==1 (
     echo  Building ARM64 (%BUILD_CONFIG%)
     echo ============================================
     echo [1/3] Configuring CMake ARM64...
-    cmake -B build-arm64 -A ARM64 -DCMAKE_BUILD_TYPE=%BUILD_CONFIG% 2>&1
+    cmake -B build-arm64 -A ARM64 2>&1
     if %errorlevel% equ 0 (
         echo [2/3] Building ARM64...
         cmake --build build-arm64 --config %BUILD_CONFIG% 2>&1
