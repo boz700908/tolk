@@ -525,3 +525,44 @@ echo ============================================
 echo  Build complete!
 echo  Output: dist\
 echo ============================================
+
+:: ---------- Verify build results ----------
+set BUILD_FAILED=0
+set BUILD_ANY=0
+
+if %BUILD_X86%==1 (
+    set BUILD_ANY=1
+    if not exist "dist\x86\Debug\Tolk.dll" if not exist "dist\x86\Release\Tolk.dll" (
+        echo WARNING: x86 build marked as success but no DLL found in dist.
+        set BUILD_FAILED=1
+    )
+)
+if %BUILD_X64%==1 (
+    set BUILD_ANY=1
+    if not exist "dist\x64\Debug\Tolk.dll" if not exist "dist\x64\Release\Tolk.dll" (
+        echo WARNING: x64 build marked as success but no DLL found in dist.
+        set BUILD_FAILED=1
+    )
+)
+if %BUILD_ARM64%==1 (
+    set BUILD_ANY=1
+    if not exist "dist\arm64\Debug\Tolk.dll" if not exist "dist\arm64\Release\Tolk.dll" (
+        echo WARNING: ARM64 build marked as success but no DLL found in dist.
+        set BUILD_FAILED=1
+    )
+)
+
+if %BUILD_ANY%==0 (
+    echo.
+    echo FATAL: All builds failed. No output was produced.
+    echo.
+    exit /b 1
+)
+
+if %BUILD_FAILED%==1 (
+    echo.
+    echo WARNING: Some builds did not produce expected output.
+    echo.
+)
+
+exit /b 0
