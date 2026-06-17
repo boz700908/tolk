@@ -8,18 +8,17 @@ set(PYTHON_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/Tolk.py")
 set(PYC_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/Tolk.pyc")
 set(PYO_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/Tolk.pyo")
 
-# Python 3.5+ bytecache directory (in BINARY dir, not SOURCE dir)
-set(PYCACHE_DIR "${CMAKE_CURRENT_BINARY_DIR}/__pycache__")
-set(PYC_CACHED "${PYCACHE_DIR}/Tolk.cpython-${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.pyc")
-set(PYO_CACHED "${PYCACHE_DIR}/Tolk.cpython-${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.opt-2.pyc")
+# Copy source to BINARY dir first, then compile there.
+# This avoids polluting the source tree with __pycache__ directories.
+set(PYTHON_STAGING "${CMAKE_CURRENT_BINARY_DIR}/Tolk.py")
 
 # Compile standard Python bytecode (.pyc)
 add_custom_command(
   OUTPUT ${PYC_OUTPUT}
-  COMMAND ${CMAKE_COMMAND} -E make_directory ${PYCACHE_DIR}
-  COMMAND ${Python3_EXECUTABLE} -m py_compile ${PYTHON_SOURCE}
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PYTHON_SOURCE} ${PYTHON_STAGING}
+  COMMAND ${Python3_EXECUTABLE} -m py_compile ${PYTHON_STAGING}
   COMMAND ${CMAKE_COMMAND} -E copy
-    "${CMAKE_CURRENT_SOURCE_DIR}/__pycache__/Tolk.cpython-${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.pyc"
+    "${CMAKE_CURRENT_BINARY_DIR}/__pycache__/Tolk.cpython-${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.pyc"
     ${PYC_OUTPUT}
   DEPENDS ${PYTHON_SOURCE}
   COMMENT "Compiling Python bytecode (.pyc)"
@@ -27,13 +26,12 @@ add_custom_command(
 )
 
 # Compile optimized Python bytecode (.pyo) using -OO (Python 3.5+)
-# -O = remove assert, -OO = also remove docstrings
 add_custom_command(
   OUTPUT ${PYO_OUTPUT}
-  COMMAND ${CMAKE_COMMAND} -E make_directory ${PYCACHE_DIR}
-  COMMAND ${Python3_EXECUTABLE} -OO -m py_compile ${PYTHON_SOURCE}
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PYTHON_SOURCE} ${PYTHON_STAGING}
+  COMMAND ${Python3_EXECUTABLE} -OO -m py_compile ${PYTHON_STAGING}
   COMMAND ${CMAKE_COMMAND} -E copy
-    "${CMAKE_CURRENT_SOURCE_DIR}/__pycache__/Tolk.cpython-${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.opt-2.pyc"
+    "${CMAKE_CURRENT_BINARY_DIR}/__pycache__/Tolk.cpython-${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.opt-2.pyc"
     ${PYO_OUTPUT}
   DEPENDS ${PYTHON_SOURCE}
   COMMENT "Compiling optimized Python bytecode (.pyo) with -OO"

@@ -2,12 +2,12 @@
 version: 1.0.{build}
 image: Visual Studio 2022
 
-# AppVeyor VS 2022 image already has:
-#   CMake, MSBuild, .NET SDK, Java, Pandoc, Ninja
-# build.bat detects CI and skips tool installation checks.
+# AppVeyor VS 2022 image has: CMake, MSBuild, Chocolatey
+# Missing tools (Pandoc, .NET SDK, Java, Ninja) are installed by build.bat
+# --clean ensures no stale CMake cache from previous builds
 
 build_script:
-  - cmd: build.bat
+  - cmd: build.bat --clean
 
 # Build artifacts
 artifacts:
@@ -17,9 +17,6 @@ artifacts:
 # No test suite yet
 test: false
 
-# Cache build directories for faster incremental builds
+# Cache NuGet packages only (not build dirs — clean build each time)
 cache:
-  - build-x86
-  - build-x64
-  - build-arm64
   - '%USERPROFILE%\.nuget\packages'

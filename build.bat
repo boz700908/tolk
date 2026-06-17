@@ -1,133 +1,103 @@
 @echo off
 setlocal enabledelayedexpansion
-echo ============================================
-echo  Tolk Build Script - x86 + x64 + ARM64 (Debug + Release)
-echo ============================================
 
-:: Detect CI environment (skip tool installs that are pre-provisioned)
+:: ============================================
+::  Tolk Build Script
+::  x86 + x64 + ARM64 (Debug + Release)
+::  Usage: build.bat [debug|release] [--clean]
+:: ============================================
+
+:: ---------- Parse arguments ----------
+set BUILD_CONFIG=Release
+set DO_CLEAN=0
+:PARSE_ARGS
+if "%~1"=="" goto :START
+if /i "%~1"=="debug"   set BUILD_CONFIG=Debug
+if /i "%~1"=="release" set BUILD_CONFIG=Release
+if /i "%~1"=="--clean" set DO_CLEAN=1
+shift
+goto :PARSE_ARGS
+
+:START
+:: Detect CI environment
 set IS_CI=0
-if defined CI set IS_CI=1
-if defined APPVEYOR set IS_CI=1
+if defined CI             set IS_CI=1
+if defined APPVEYOR       set IS_CI=1
 if defined GITHUB_ACTIONS set IS_CI=1
-if %IS_CI%==1 (
-    echo [CI] Running in CI environment - skipping tool installation checks
-    goto :SKIP_TOOL_CHECKS
+:: CI always does a clean build (no stale cache)
+if %IS_CI%==1 set DO_CLEAN=1
+
+echo ============================================
+echo  Tolk Build Script
+echo  Config: %BUILD_CONFIG%  CI: %IS_CI%  Clean: %DO_CLEAN%
+echo ============================================
+
+:: ---------- Clean build directories ----------
+if %DO_CLEAN%==1 (
+    echo [Clean] Removing stale build directories...
+    for %%D in (build-x86 build-x64 build-arm64 dist) do (
+        if exist "%%D" (
+            echo   Removing %%D\
+            rmdir /s /q "%%D" 2>nul
+        )
+    )
+    echo [Clean] Done.
 )
 
-echo [Preflight] Checking and installing required build tools...
-echo.
-
-goto :MAIN
-
 :: ============================================
-:: Helper 1: Chocolatey install/upgrade with retry mechanism
+:: Helper: Safe environment refresh
 :: ============================================
-:CHOCO_INSTALL
-setlocal
-set RETRY_COUNT=0
-set MAX_RETRIES=3
-
-:CHOCO_LOOP_START
-choco install %* -y --no-progress --limit-output >nul 2>&1
-set EXIT_CODE=%errorlevel%
-if %EXIT_CODE% equ 0 (
-    call :SAFE_REFRESH_ENV
-    endlocal & exit /b 0
-)
-
-set /a RETRY_COUNT+=1
-if %RETRY_COUNT% geq %MAX_RETRIES% endlocal & exit /b %EXIT_CODE%
-
-:: Use ping for delay instead of timeout (more compatible)
-ping -n 3 127.0.0.1 >nul
-goto CHOCO_LOOP_START
-
-:: Safe environment refresh
 :SAFE_REFRESH_ENV
-if exist "%ChocolateyInstall%\bin\RefreshEnv.cmd" (
-    call "%ChocolateyInstall%\bin\RefreshEnv.cmd" >nul 2>&1
-) else if exist "%ALLUSERSPROFILE%\chocolatey\bin\RefreshEnv.cmd" (
-    call "%ALLUSERSPROFILE%\chocolatey\bin\RefreshEnv.cmd" >nul 2>&1
-) else if exist "C:\ProgramData\chocolatey\bin\RefreshEnv.cmd" (
-    call "C:\ProgramData\chocolatey\bin\RefreshEnv.cmd" >nul 2>&1
+for %%P in (
+    "%ChocolateyInstall%\bin\RefreshEnv.cmd"
+    "%ALLUSERSPROFILE%\chocolatey\bin\RefreshEnv.cmd"
+    "%ProgramData%\chocolatey\bin\RefreshEnv.cmd"
+) do (
+    if exist %%P (
+        call %%P >nul 2>&1
+        exit /b 0
+    )
 )
 exit /b 0
 
 :: ============================================
-:: Helper 2: Version comparison function
-:: Usage: call :VERSION_COMPARE "current_version" "minimum_required"
-:: Returns: errorlevel 0 = meets requirement, 1 = does not meet
+:: Helper: Chocolatey install with retry
 :: ============================================
-:VERSION_COMPARE
+:CHOCO_INSTALL
 setlocal
-set CURRENT_VER=%~1
-set REQUIRED_VER=%~2
-
-:: Sanitize version: remove all non-numeric characters except dots
-set SANITIZED_VER=
-:VERSION_SANITIZE_LOOP
-if "%CURRENT_VER%"=="" goto VERSION_SANITIZE_DONE
-set CHAR=%CURRENT_VER:~0,1%
-echo.%CHAR% | findstr /r "[0-9.]" >nul
-if %errorlevel% equ 0 set SANITIZED_VER=%SANITIZED_VER%%CHAR%
-set CURRENT_VER=%CURRENT_VER:~1%
-goto VERSION_SANITIZE_LOOP
-:VERSION_SANITIZE_DONE
-set CURRENT_VER=%SANITIZED_VER%
-
-:: Split version string into components
-for /f "tokens=1,2,3 delims=." %%a in ("%CURRENT_VER%") do (
-    set CUR_MAJOR=%%a
-    set CUR_MINOR=%%b
-    set CUR_PATCH=%%c
-)
-for /f "tokens=1,2,3 delims=." %%a in ("%REQUIRED_VER%") do (
-    set REQ_MAJOR=%%a
-    set REQ_MINOR=%%b
-    set REQ_PATCH=%%c
-)
-
-:: Handle empty values
-if not defined CUR_MAJOR set CUR_MAJOR=0
-if not defined CUR_MINOR set CUR_MINOR=0
-if not defined CUR_PATCH set CUR_PATCH=0
-if not defined REQ_MAJOR set REQ_MAJOR=0
-if not defined REQ_MINOR set REQ_MINOR=0
-if not defined REQ_PATCH set REQ_PATCH=0
-
-:: Remove Java version prefix (e.g., "1." from "1.8.0")
-if "%CUR_MAJOR%"=="1" if not "%CUR_MINOR%"=="" (
-    set CUR_MAJOR=%CUR_MINOR%
-    set CUR_MINOR=%CUR_PATCH%
-    set CUR_PATCH=0
-)
-
-:: Major version comparison with full quote protection
-if "%CUR_MAJOR%" gtr "%REQ_MAJOR%" endlocal & exit /b 0
-if "%CUR_MAJOR%" lss "%REQ_MAJOR%" endlocal & exit /b 1
-
-:: Minor version comparison with full quote protection
-if "%CUR_MINOR%" gtr "%REQ_MINOR%" endlocal & exit /b 0
-if "%CUR_MINOR%" lss "%REQ_MINOR%" endlocal & exit /b 1
-
-:: Patch version comparison with full quote protection
-if "%CUR_PATCH%" geq "%REQ_PATCH%" (
+set /a TRY=0
+:CHOCO_RETRY
+choco install %* -y --no-progress --limit-output --allow-downgrade >nul 2>&1
+set RC=%errorlevel%
+if %RC% equ 0 (
+    call :SAFE_REFRESH_ENV
     endlocal & exit /b 0
-) else (
-    endlocal & exit /b 1
 )
+set /a TRY+=1
+if %TRY% lss 3 (
+    ping -n 3 127.0.0.1 >nul
+    goto :CHOCO_RETRY
+)
+endlocal & exit /b %RC%
 
 :: ============================================
-:: Helper 3: Tool version detection and auto-upgrade
-:: Usage: call :CHECK_TOOL "tool_name" "check_command" "min_version" "choco_pkg" "is_required"
+:: Helper: Check tool version against minimum
 :: ============================================
 :CHECK_TOOL
 setlocal
-set TOOL_NAME=%~1
-set CHECK_CMD=%~2
-set MIN_VERSION=%~3
-set CHOCO_PKG=%~4
-set IS_REQUIRED=%~5
+set "TOOL_NAME=%~1"
+set "MIN_VERSION=%~2"
+set "VERSION_ARG=%~3"
+set "CHOCO_PKG=%~4"
+set "IS_REQUIRED=%~5"
+set "CI_SKIP=%~6"
+if "%TOOL_NAME%"=="" endlocal & exit /b 0
+
+:: On CI, skip VS/MSBuild installation (VS 2022 is pre-installed)
+if %IS_CI%==1 if "%CI_SKIP%"=="1" (
+    echo [%STEP%/7] %TOOL_NAME%: using pre-installed Visual Studio 2022
+    endlocal & exit /b 0
+)
 
 :: Check if tool exists
 where "%TOOL_NAME%" >nul 2>&1
@@ -135,7 +105,7 @@ if %errorlevel% neq 0 (
     echo [%STEP%/7] %TOOL_NAME% not found, installing...
     call :CHOCO_INSTALL %CHOCO_PKG%
     if !errorlevel! equ 0 (
-        echo [%STEP%/7] %TOOL_NAME% installed successfully.
+        echo [%STEP%/7] %TOOL_NAME% installed.
     ) else (
         if "%IS_REQUIRED%"=="1" (
             echo ERROR: %TOOL_NAME% installation failed.
@@ -147,367 +117,269 @@ if %errorlevel% neq 0 (
     endlocal & exit /b 0
 )
 
-:: Extract version number - FIX: take ONLY FIRST LINE using GOTO (only reliable method)
-set VERSION_OUTPUT=
-for /f "tokens=*" %%v in ('%CHECK_CMD% 2^>^&1') do (
-    set VERSION_OUTPUT=%%v
-    goto VERSION_DONE
+:: Check version
+for /f "tokens=*" %%v in ('%TOOL_NAME% %VERSION_ARG% 2^>^&1 ^| findstr /r "[0-9][0-9]*\.[0-9][0-9]*"') do set "DETECTED_VERSION=%%v"
+if "%DETECTED_VERSION%"=="" (
+    echo [%STEP%/7] %TOOL_NAME% found ^(version unknown^).
+    endlocal & exit /b 0
 )
-:VERSION_DONE
 
-:: Parse version number from output (generic pattern)
-for /f "tokens=3 delims= " %%a in ("%VERSION_OUTPUT%") do set DETECTED_VERSION=%%a
-
-:: Version comparison - FORCE UPGRADE for ALL tools
 call :VERSION_COMPARE "%DETECTED_VERSION%" "%MIN_VERSION%"
 if %errorlevel% equ 1 (
-    echo [%STEP%/7] %TOOL_NAME% %DETECTED_VERSION% is below minimum, upgrading...
+    echo [%STEP%/7] %TOOL_NAME% v%DETECTED_VERSION% ^< v%MIN_VERSION%, upgrading...
     call :CHOCO_INSTALL %CHOCO_PKG%
     if !errorlevel! equ 0 (
-        echo [%STEP%/7] %TOOL_NAME% upgraded to latest version.
+        echo [%STEP%/7] %TOOL_NAME% upgraded.
     ) else (
-        echo WARNING: %TOOL_NAME% upgrade failed, using current version.
+        echo WARNING: %TOOL_NAME% upgrade failed, using v%DETECTED_VERSION%.
     )
 ) else (
-    echo [%STEP%/7] %TOOL_NAME% %DETECTED_VERSION% OK
+    echo [%STEP%/7] %TOOL_NAME% v%DETECTED_VERSION% ^>= v%MIN_VERSION% ^(OK^)
 )
 endlocal & exit /b 0
 
 :: ============================================
-:: MAIN SCRIPT ENTRY
+:: Helper: Simple version comparison
+:: ============================================
+:VERSION_COMPARE
+setlocal
+set "V1=%~1"
+set "V2=%~2"
+:: Strip leading non-digits
+for /f "tokens=1-3 delims=." %%a in ("%V1%") do set "A1=%%a" & set "A2=%%b" & set "A3=%%c"
+for /f "tokens=1-3 delims=." %%a in ("%V2%") do set "B1=%%a" & set "B2=%%b" & set "B3=%%c"
+if "%A1%"=="" set A1=0
+if "%A2%"=="" set A2=0
+if "%A3%"=="" set A3=0
+if "%B1%"=="" set B1=0
+if "%B2%"=="" set B2=0
+if "%B3%"=="" set B3=0
+if %A1% lss %B1% endlocal & exit /b 1
+if %A1% gtr %B1% endlocal & exit /b 0
+if %A2% lss %B2% endlocal & exit /b 1
+if %A2% gtr %B2% endlocal & exit /b 0
+if %A3% lss %B3% endlocal & exit /b 1
+endlocal & exit /b 0
+
+:: ============================================
+:: MAIN: Preflight tool checks
 :: ============================================
 :MAIN
 
-:: ============================================
-:: Step 1: Auto-install Chocolatey (Windows package manager)
-:: ============================================
+:: Step 1: Chocolatey
 set STEP=1
 where choco >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [%STEP%/7] Chocolatey not found, installing...
-    powershell -NoProfile -InputFormat None -ExecutionPolicy Bypass -Command "iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))" >nul 2>&1
+    echo [1/7] Chocolatey not found, installing...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))" >nul 2>&1
     set "PATH=%PATH%;%ALLUSERSPROFILE%\chocolatey\bin"
-    echo [%STEP%/7] Chocolatey installed successfully.
+    echo [1/7] Chocolatey installed.
 ) else (
-    echo [%STEP%/7] Chocolatey already installed.
+    echo [1/7] Chocolatey available.
 )
-
-:: Refresh environment using safe helper
 call :SAFE_REFRESH_ENV
 
-:: ============================================
-:: Step 2: CMake >= 3.20 (REQUIRED)
-:: ============================================
+:: Step 2: CMake (>= 3.20)
 set STEP=2
-call :CHECK_TOOL "cmake" "cmake --version" "3.20.0" "cmake" "1"
+call :CHECK_TOOL "cmake" "3.20" "--version" "cmake" "1" "0"
 
-:: ============================================
-:: Step 3: Visual Studio 2022 Build Tools (REQUIRED, MSBuild >= 17.0)
-:: ============================================
+:: Step 3: MSBuild (VS 2022 Build Tools) — skip on CI
 set STEP=3
-where msbuild >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [%STEP%/7] MSBuild / Visual Studio Build Tools not found, installing...
-    call :CHOCO_INSTALL visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
-    if !errorlevel! equ 0 (
-        echo [%STEP%/7] Visual Studio 2022 Build Tools installed successfully.
-    ) else (
-        echo WARNING: Build Tools installation failed, trying to continue...
-    )
-) else (
-    :: Check MSBuild version (VS 2022 = 17.x)
-    for /f "tokens=3 delims= " %%v in ('msbuild -version 2^>^&1') do set MSBUILD_VERSION=%%v
-    for /f "tokens=1 delims=." %%m in ("!MSBUILD_VERSION!") do set MSBUILD_MAJOR=%%m
-    
-    if !MSBUILD_MAJOR! lss 17 (
-        echo [%STEP%/7] WARNING: MSBuild !MSBUILD_VERSION! is older than VS 2022 (17.x)
-        echo [%STEP%/7] Recommend upgrading to Visual Studio 2022 Build Tools
-    ) else (
-        echo [%STEP%/7] MSBuild !MSBUILD_VERSION! OK
-    )
-    
-    :: Check vcvarsall.bat environment
-    set VCVARS_FOUND=0
-    if exist "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" (
-        set VCVARS_FOUND=1
-    ) else if exist "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat" (
-        set VCVARS_FOUND=1
-    ) else if exist "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" (
-        set VCVARS_FOUND=1
-    )
-    
-    if !VCVARS_FOUND! equ 1 (
-        echo [%STEP%/7] VS 2022 vcvarsall.bat detected - OK
-    ) else (
-        echo [%STEP%/7] WARNING: VS 2022 vcvarsall.bat not found, may need full VS 2022 installation
-    )
-)
+call :CHECK_TOOL "msbuild" "17.0" "-version" "visualstudio2022buildtools --package-parameters \"--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\"" "1" "1"
 
-:: ============================================
-:: Step 4: Pandoc >= 2.18 (REQUIRED - force version check)
-:: ============================================
+:: Step 4: Pandoc (>= 2.18)
 set STEP=4
-call :CHECK_TOOL "pandoc" "pandoc --version" "2.18.0" "pandoc" "1"
+call :CHECK_TOOL "pandoc" "2.18" "--version" "pandoc" "1" "0"
 
-:: ============================================
-:: Step 5: .NET SDK (REQUIRED)
-:: ============================================
+:: Step 5: .NET SDK (>= 6.0)
 set STEP=5
+call :CHECK_TOOL "dotnet" "6.0" "--version" "dotnet-sdk" "1" "0"
+:: Restore NuGet packages (no-op for TolkDotNet which has no external deps,
+:: but required for the --no-restore flag in CMake to work)
 where dotnet >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [%STEP%/7] .NET SDK not found, installing...
-    call :CHOCO_INSTALL dotnet-sdk
-    if !errorlevel! equ 0 (
-        echo [%STEP%/7] .NET SDK installed successfully.
-    ) else (
-        echo WARNING: .NET SDK installation failed, .NET wrapper will be skipped.
-    )
-) else (
-    echo [%STEP%/7] .NET SDK - OK
-)
-
-:: ============================================
-:: Step 5b: NuGet Restore for .NET projects
-:: ============================================
-if exist "src\dotnet\TolkDotNet.csproj" (
-    echo [5b/7] Running NuGet restore for .NET project...
-    dotnet restore "src\dotnet\TolkDotNet.csproj" >nul 2>&1
-    if !errorlevel! equ 0 (
-        echo [5b/7] NuGet restore completed.
-    ) else (
-        echo WARNING: NuGet restore failed, build may use cached packages.
-    )
-)
-
-:: ============================================
-:: Step 6: Java >= 11 (REQUIRED - supports --release parameter)
-:: ============================================
-set STEP=6
-where java >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [%STEP%/7] Java not found, installing OpenJDK 17...
-    call :CHOCO_INSTALL openjdk17
-    if !errorlevel! equ 0 (
-        echo [%STEP%/7] OpenJDK 17 installed successfully.
-    ) else (
-        echo WARNING: Java installation failed, Java JAR will be skipped.
-    )
-) else (
-    :: Special handling for Java version detection (outputs to stderr)
-    for /f "tokens=3" %%v in ('java -version 2^>^&1 ^| findstr /i "version"') do (
-        set JAVA_VERSION=%%v
-        set JAVA_VERSION=!JAVA_VERSION:"=!
-    )
-    :: Parse Java version format (e.g., 1.8.0_302 -> 8, 11.0.12 -> 11)
-    for /f "tokens=1,2 delims=._" %%a in ("!JAVA_VERSION!") do (
-        if "%%a"=="1" (
-            set JAVA_MAJOR=%%b
-        ) else (
-            set JAVA_MAJOR=%%a
-        )
-    )
-    
-    if !JAVA_MAJOR! lss 11 (
-        echo [%STEP%/7] Java !JAVA_MAJOR! is below 11, upgrading to OpenJDK 17...
-        call :CHOCO_INSTALL openjdk17
+if %errorlevel% equ 0 (
+    if exist "src\dotnet\TolkDotNet.csproj" (
+        echo [5/7] Running dotnet restore...
+        dotnet restore "src\dotnet\TolkDotNet.csproj" >nul 2>&1
         if !errorlevel! equ 0 (
-            echo [%STEP%/7] OpenJDK 17 installed successfully.
+            echo [5/7] dotnet restore completed.
         ) else (
-            echo WARNING: Java upgrade failed. Release parameter may not work.
+            echo WARNING: dotnet restore failed, build may use cached packages.
         )
-    ) else (
-        echo [%STEP%/7] Java !JAVA_MAJOR! OK
     )
 )
 
-:: ============================================
-:: Step 7: Ninja >= 1.10 (REQUIRED - force version check)
-:: ============================================
+:: Step 6: Java (OpenJDK 17)
+set STEP=6
+call :CHECK_TOOL "java" "11" "--version" "openjdk17" "0" "0"
+
+:: Step 7: Ninja (>= 1.10) — optional
 set STEP=7
-call :CHECK_TOOL "ninja" "ninja --version" "1.10.0" "ninja" "1"
+call :CHECK_TOOL "ninja" "1.10" "--version" "ninja" "0" "0"
 
 echo.
 echo [Preflight] All required build tools are ready!
 echo ============================================
 echo.
 
-:SKIP_TOOL_CHECKS
-echo [Preflight] Build environment ready.
-echo ============================================
-echo.
+:: ============================================
+:: BUILD
+:: ============================================
 
-:: Parse command line arguments
-set BUILD_DEBUG=1
-set BUILD_RELEASE=1
-if "%1"=="release" set BUILD_DEBUG=0
-if "%1"=="debug" set BUILD_RELEASE=0
+:: Determine build targets
+set BUILD_X86=1
+set BUILD_X64=1
+set BUILD_ARM64=1
+
+:: ARM64: only attempt if VS 2022 ARM64 toolchain is present
+where msbuild >nul 2>&1
+if %errorlevel% neq 0 (
+    echo WARNING: MSBuild not found, skipping ARM64 build.
+    set BUILD_ARM64=0
+)
 
 :: x86 build
-echo.
-echo [1/11] Configuring x86...
-cmake -B build-x86 -A Win32
-if %errorlevel% neq 0 (
-    echo ERROR: x86 configuration failed.
-    exit /b 1
-)
-
-if %BUILD_DEBUG%==1 (
-echo.
-echo [2/11] Building x86 Debug...
-cmake --build build-x86 --config Debug
-if %errorlevel% neq 0 (
-    echo ERROR: x86 Debug build failed.
-    exit /b 1
-)
-)
-
-if %BUILD_RELEASE%==1 (
-echo.
-echo [3/11] Building x86 Release...
-cmake --build build-x86 --config Release
-if %errorlevel% neq 0 (
-    echo ERROR: x86 Release build failed.
-    exit /b 1
-)
+if %BUILD_X86%==1 (
+    echo ============================================
+    echo  Building x86 (%BUILD_CONFIG%)
+    echo ============================================
+    echo [1/3] Configuring CMake x86...
+    cmake -B build-x86 -A Win32 -DCMAKE_BUILD_TYPE=%BUILD_CONFIG% 2>&1
+    if %errorlevel% equ 0 (
+        echo [2/3] Building x86...
+        cmake --build build-x86 --config %BUILD_CONFIG% 2>&1
+        if %errorlevel% equ 0 (
+            echo [3/3] x86 build succeeded.
+        ) else (
+            echo ERROR: x86 build failed.
+            set BUILD_X86=0
+        )
+    ) else (
+        echo ERROR: x86 CMake configuration failed.
+        set BUILD_X86=0
+    )
 )
 
 :: x64 build
-echo.
-echo [4/11] Configuring x64...
-cmake -B build-x64 -A x64
-if %errorlevel% neq 0 (
-    echo ERROR: x64 configuration failed.
-    exit /b 1
-)
-
-if %BUILD_DEBUG%==1 (
-echo.
-echo [5/11] Building x64 Debug...
-cmake --build build-x64 --config Debug
-if %errorlevel% neq 0 (
-    echo ERROR: x64 Debug build failed.
-    exit /b 1
-)
-)
-
-if %BUILD_RELEASE%==1 (
-echo.
-echo [6/11] Building x64 Release...
-cmake --build build-x64 --config Release
-if %errorlevel% neq 0 (
-    echo ERROR: x64 Release build failed.
-    exit /b 1
-)
+if %BUILD_X64%==1 (
+    echo.
+    echo ============================================
+    echo  Building x64 (%BUILD_CONFIG%)
+    echo ============================================
+    echo [1/3] Configuring CMake x64...
+    cmake -B build-x64 -A x64 -DCMAKE_BUILD_TYPE=%BUILD_CONFIG% 2>&1
+    if %errorlevel% equ 0 (
+        echo [2/3] Building x64...
+        cmake --build build-x64 --config %BUILD_CONFIG% 2>&1
+        if %errorlevel% equ 0 (
+            echo [3/3] x64 build succeeded.
+        ) else (
+            echo ERROR: x64 build failed.
+            set BUILD_X64=0
+        )
+    ) else (
+        echo ERROR: x64 CMake configuration failed.
+        set BUILD_X64=0
+    )
 )
 
 :: ARM64 build
-echo.
-echo [7/11] Configuring ARM64...
-cmake -B build-arm64 -A ARM64 2>&1
-if %errorlevel% neq 0 (
-    echo WARNING: ARM64 toolchain not available, skipping ARM64 build.
-    goto skip_arm64
+if %BUILD_ARM64%==1 (
+    echo.
+    echo ============================================
+    echo  Building ARM64 (%BUILD_CONFIG%)
+    echo ============================================
+    echo [1/3] Configuring CMake ARM64...
+    cmake -B build-arm64 -A ARM64 -DCMAKE_BUILD_TYPE=%BUILD_CONFIG% 2>&1
+    if %errorlevel% equ 0 (
+        echo [2/3] Building ARM64...
+        cmake --build build-arm64 --config %BUILD_CONFIG% 2>&1
+        if %errorlevel% equ 0 (
+            echo [3/3] ARM64 build succeeded.
+        ) else (
+            echo WARNING: ARM64 build failed ^(toolchain may be missing^).
+        )
+    ) else (
+        echo WARNING: ARM64 CMake configuration failed ^(toolchain not available^).
+    )
 )
 
-if %BUILD_DEBUG%==1 (
-echo.
-echo [8/11] Building ARM64 Debug...
-cmake --build build-arm64 --config Debug
-if %errorlevel% neq 0 (
-    echo WARNING: ARM64 Debug build failed, skipping.
-)
-)
-
-if %BUILD_RELEASE%==1 (
-echo.
-echo [9/11] Building ARM64 Release...
-cmake --build build-arm64 --config Release
-if %errorlevel% neq 0 (
-    echo WARNING: ARM64 Release build failed, skipping.
-)
-)
-
-:skip_arm64
-
-:: Assemble dist
+:: ============================================
+:: ASSEMBLE DISTRIBUTION
+:: ============================================
 echo.
 echo ============================================
 echo  Assembling distribution...
 echo ============================================
 
-if exist dist rmdir /s /q dist
-mkdir dist\x86\Debug
-mkdir dist\x86\Release
-mkdir dist\x64\Debug
-mkdir dist\x64\Release
-mkdir dist\arm64\Debug
-mkdir dist\arm64\Release
+:: Create dist directories
+if not exist "dist" mkdir dist
 
-:: x86 Debug output
-if %BUILD_DEBUG%==1 (
-if exist build-x86\dist\x86-Debug copy build-x86\dist\x86-Debug\* dist\x86\Debug\
+:: Copy x86 output
+if %BUILD_X86%==1 (
+    if exist "build-x86\dist\x86-Debug" (
+        xcopy /E /I /Y "build-x86\dist\x86-Debug" "dist\x86\Debug" >nul
+        echo   x86 Debug copied.
+    )
+    if exist "build-x86\dist\x86-Release" (
+        xcopy /E /I /Y "build-x86\dist\x86-Release" "dist\x86\Release" >nul
+        echo   x86 Release copied.
+    )
 )
 
-:: x86 Release output
-if %BUILD_RELEASE%==1 (
-if exist build-x86\dist\x86-Release copy build-x86\dist\x86-Release\* dist\x86\Release\
+:: Copy x64 output
+if %BUILD_X64%==1 (
+    if exist "build-x64\dist\x64-Debug" (
+        xcopy /E /I /Y "build-x64\dist\x64-Debug" "dist\x64\Debug" >nul
+        echo   x64 Debug copied.
+    )
+    if exist "build-x64\dist\x64-Release" (
+        xcopy /E /I /Y "build-x64\dist\x64-Release" "dist\x64\Release" >nul
+        echo   x64 Release copied.
+    )
+    :: Copy .NET wrapper (architecture-independent, built once with x64)
+    if exist "build-x64\src\dotnet\publish\TolkDotNet.dll" (
+        copy /Y "build-x64\src\dotnet\publish\TolkDotNet.dll" "dist\" >nul
+        echo   .NET wrapper copied.
+    )
+    :: Copy Java JAR
+    if exist "build-x64\src\java\Tolk.jar" (
+        copy /Y "build-x64\src\java\Tolk.jar" "dist\" >nul
+        echo   Java JAR copied.
+    )
+    :: Copy documentation
+    if exist "build-x64\docs\README.html" (
+        copy /Y "build-x64\docs\README.html" "dist\" >nul
+        echo   Documentation copied.
+    )
 )
 
-:: x64 Debug output
-if %BUILD_DEBUG%==1 (
-if exist build-x64\dist\x64-Debug copy build-x64\dist\x64-Debug\* dist\x64\Debug\
+:: Copy ARM64 output
+if %BUILD_ARM64%==1 (
+    if exist "build-arm64\dist\ARM64-Debug" (
+        xcopy /E /I /Y "build-arm64\dist\ARM64-Debug" "dist\arm64\Debug" >nul
+        echo   ARM64 Debug copied.
+    )
+    if exist "build-arm64\dist\ARM64-Release" (
+        xcopy /E /I /Y "build-arm64\dist\ARM64-Release" "dist\arm64\Release" >nul
+        echo   ARM64 Release copied.
+    )
 )
 
-:: x64 Release output
-if %BUILD_RELEASE%==1 (
-if exist build-x64\dist\x64-Release copy build-x64\dist\x64-Release\* dist\x64\Release\
+:: Copy license files
+if exist "LICENSE.txt"   copy /Y "LICENSE.txt"   "dist\" >nul
+if exist "LICENSE-NVDA.txt" copy /Y "LICENSE-NVDA.txt" "dist\" >nul
+
+:: Copy source wrappers (language bindings, architecture-independent)
+for %%W in (Tolk.py Tolk.au3 Tolk.pb) do (
+    if exist "src\python\%%W"   copy /Y "src\python\%%W"   "dist\" >nul 2>&1
+    if exist "src\autoit\%%W"   copy /Y "src\autoit\%%W"   "dist\" >nul 2>&1
+    if exist "src\purebasic\%%W" copy /Y "src\purebasic\%%W" "dist\" >nul 2>&1
 )
-
-:: ARM64 Debug output
-if %BUILD_DEBUG%==1 (
-if exist build-arm64\dist\arm64-Debug copy build-arm64\dist\arm64-Debug\* dist\arm64\Debug\
-)
-
-:: ARM64 Release output
-if %BUILD_RELEASE%==1 (
-if exist build-arm64\dist\arm64-Release copy build-arm64\dist\arm64-Release\* dist\arm64\Release\
-)
-
-:: .NET wrapper
-if exist build-x64\src\dotnet\TolkDotNet.dll copy build-x64\src\dotnet\TolkDotNet.dll dist\
-
-:: Java JAR
-if exist build-x64\src\java\Tolk.jar copy build-x64\src\java\Tolk.jar dist\
-
-:: Documentation
-if exist build-x64\docs\README.html copy build-x64\docs\README.html dist\
-
-:: License
-if exist LICENSE*.txt copy LICENSE*.txt dist\
 
 echo.
 echo ============================================
 echo  Build complete!
 echo  Output: dist\
-echo    dist\x86\Debug\     - 32-bit x86 Debug DLLs
-echo    dist\x86\Release\   - 32-bit x86 Release DLLs
-echo    dist\x64\Debug\     - 64-bit x64 Debug DLLs
-echo    dist\x64\Release\   - 64-bit x64 Release DLLs
-echo    dist\arm64\Debug\   - ARM64 Debug DLLs (NVDA only)
-echo    dist\arm64\Release\ - ARM64 Release DLLs (NVDA only)
-echo.
-echo  Debug Build Features:
-echo    - Tolk_Debug.log written to calling process working directory
-echo    - ERR/WRN messages printed to console (colored)
-echo    - All logs sent to OutputDebugString
-echo.
-echo  ARM64 Notes:
-echo    - Only NVDA screen reader supports ARM64 natively
-echo    - Other drivers (JAWS, SAPI, etc.) will auto-disable on ARM64
-echo.
-echo  Usage:
-echo    build.bat          - Build both Debug and Release
-echo    build.bat debug    - Build Debug only
-echo    build.bat release  - Build Release only
 echo ============================================
-endlocal
