@@ -8,11 +8,23 @@ on:
   workflow_dispatch:
 jobs:
   build:
-    name: Build ${{ matrix.arch }}
+    name: Build ${{ matrix.arch }} ${{ matrix.config }}
     runs-on: windows-latest
     strategy:
       matrix:
-        arch: [x86, x64, arm64]
+        include:
+          - arch: x64
+            config: Debug
+          - arch: x64
+            config: Release
+          - arch: x86
+            config: Debug
+          - arch: x86
+            config: Release
+          - arch: arm64
+            config: Debug
+          - arch: arm64
+            config: Release
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v6
@@ -29,26 +41,26 @@ jobs:
         uses: pandoc/actions/setup@v1
       - name: Build with build.bat
         shell: cmd
-        run: build.bat --${{ matrix.arch }} --clean
-      - name: Upload Build Artifacts
+        run: build.bat --${{ matrix.arch }} ${{ matrix.config }} --clean
+      - name: Upload Architecture Artifact (${{ matrix.config }})
         uses: actions/upload-artifact@v7
         with:
-          name: tolk-${{ matrix.arch }}
+          name: tolk-${{ matrix.arch }}-${{ matrix.config }}
           path: dist\**
       - name: Upload .NET Library
-        if: matrix.arch == 'x64'
+        if: matrix.arch == 'x64' && matrix.config == 'Release'
         uses: actions/upload-artifact@v7
         with:
           name: tolk-dotnet
           path: dist\TolkDotNet.dll
       - name: Upload Java Archive
-        if: matrix.arch == 'x64'
+        if: matrix.arch == 'x64' && matrix.config == 'Release'
         uses: actions/upload-artifact@v7
         with:
           name: tolk-java
           path: dist\Tolk.jar
       - name: Upload Documentation
-        if: matrix.arch == 'x64'
+        if: matrix.arch == 'x64' && matrix.config == 'Release'
         uses: actions/upload-artifact@v7
         with:
           name: tolk-docs
@@ -64,20 +76,22 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: artifacts
-      - name: Assemble Release Package
+      - name: Prepare Release Package (Debug + Release)
         shell: cmd
         run: |
-          mkdir dist
-          :: Merge per-architecture dist directories
-          xcopy /E /Y artifacts\tolk-x86\* dist\
-          xcopy /E /Y artifacts\tolk-x64\* dist\
-          xcopy /E /Y artifacts\tolk-arm64\* dist\
-          :: .NET, Java, Docs — pick from x64 (architecture-independent)
-          xcopy /E /Y artifacts\tolk-dotnet\* dist\wrappers\dotnet\
-          xcopy /E /Y artifacts\tolk-java\* dist\wrappers\java\
-          mkdir dist\docs
-          xcopy /E /Y artifacts\tolk-docs\* dist\docs\
-          :: Source wrappers — deduplicate from arch dirs into unified wrappers/
+          mkdir dist\x86\Debug
+          mkdir dist\x86\Release
+          mkdir dist\x64\Debug
+          mkdir dist\x64\Release
+          mkdir dist\arm64\Debug
+          mkdir dist\arm64\Release
+          xcopy /E /Y artifacts\tolk-x86-Debug\* dist\x86\Debug\
+          xcopy /E /Y artifacts\tolk-x86-Release\* dist\x86\Release\
+          xcopy /E /Y artifacts\tolk-x64-Debug\* dist\x64\Debug\
+          xcopy /E /Y artifacts\tolk-x64-Release\* dist\x64\Release\
+          xcopy /E /Y artifacts\tolk-arm64-Debug\* dist\arm64\Debug\
+          xcopy /E /Y artifacts\tolk-arm64-Release\* dist\arm64\Release\
+          :: Language wrappers — shared common directory (avoid duplication across architectures)
           mkdir dist\wrappers\autoit
           mkdir dist\wrappers\purebasic
           mkdir dist\wrappers\python
@@ -92,7 +106,13 @@ jobs:
               rmdir /s /q dist\%%A\%%C\python 2>nul
             )
           )
-          :: License files
+          :: .NET Wrapper — unified wrappers directory
+          if exist artifacts\tolk-dotnet\* xcopy /E /Y artifacts\tolk-dotnet\* dist\wrappers\dotnet\
+          :: Java Wrapper — unified wrappers directory
+          if exist artifacts\tolk-java\* xcopy /E /Y artifacts\tolk-java\* dist\wrappers\java\
+          :: Documentation — separate directory
+          mkdir dist\docs
+          if exist artifacts\tolk-docs\* xcopy /E /Y artifacts\tolk-docs\* dist\docs\
           copy LICENSE* dist\
       - name: Create README for Debug Build
         shell: cmd
