@@ -1,0 +1,41 @@
+---
+version: 1.0.{build}
+image: Visual Studio 2022
+
+# AppVeyor VS 2022 image has: CMake, MSBuild, Chocolatey
+# Missing tools (Pandoc, .NET SDK, Java, Ninja) are installed by build.bat
+# --clean ensures no stale CMake cache from previous builds
+
+build_script:
+  - cmd: build.bat --clean
+
+# Build artifacts — per-architecture + per-config (same granularity as GitHub Actions)
+artifacts:
+  - path: dist\x86\Debug
+    name: tolk-x86-Debug
+  - path: dist\x86\Release
+    name: tolk-x86-Release
+  - path: dist\x64\Debug
+    name: tolk-x64-Debug
+  - path: dist\x64\Release
+    name: tolk-x64-Release
+  - path: dist\arm64\Debug
+    name: tolk-arm64-Debug
+  - path: dist\arm64\Release
+    name: tolk-arm64-Release
+  - path: dist\TolkDotNet.dll
+    name: tolk-dotnet
+  - path: dist\Tolk.jar
+    name: tolk-java
+  - path: dist\README.html
+    name: tolk-docs
+  # Combined dist for convenience
+  - path: dist
+    name: Tolk-Build-Output
+
+# No test suite yet
+test: false
+
+# Cache NuGet packages only (not build dirs — clean build each time)
+cache:
+  - '%USERPROFILE%\.nuget\packages'

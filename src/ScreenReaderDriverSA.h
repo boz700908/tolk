@@ -23,8 +23,6 @@ public:
   bool IsSpeaking() override { return false; }
   bool Silence() override;
   bool IsActive() override;
-  bool Output(const wchar_t *str, bool interrupt) override;
-
 private:
   typedef bool (__stdcall *SA_SayW)(const wchar_t *);
   typedef bool (__stdcall *SA_BrlShowTextW)(const wchar_t *);

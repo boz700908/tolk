@@ -23,8 +23,6 @@ public:
   bool IsSpeaking() override { return false; }
   bool Silence() override;
   bool IsActive() override;
-  bool Output(const wchar_t *str, bool interrupt) override;
-
 private:
   typedef error_status_t (__stdcall *NVDAController_speakText)(const wchar_t *);
   typedef error_status_t (__stdcall *NVDAController_brailleMessage)(const wchar_t *);
