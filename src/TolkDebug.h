@@ -51,7 +51,7 @@ inline void Tolk_Log(int level, const char* file, int line, const char* format, 
     }
 
     char prefix[256];
-    int prefixLen = snprintf(prefix, sizeof(prefix),
+    snprintf(prefix, sizeof(prefix),
         "[%02d:%02d:%02d.%03d][Tolk][%s] %s(%d): ",
         st.wHour, st.wMinute, st.wSecond, st.wMilliseconds,
         levelStr, file, line);
@@ -60,7 +60,7 @@ inline void Tolk_Log(int level, const char* file, int line, const char* format, 
     va_list args;
     va_start(args, format);
     char message[1024];
-    int msgLen = vsnprintf(message, sizeof(message), format, args);
+    vsnprintf(message, sizeof(message), format, args);
     va_end(args);
 
     // 1) Always send to OutputDebugString (thread-safe, no lock needed)

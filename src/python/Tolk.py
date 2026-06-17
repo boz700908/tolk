@@ -5,12 +5,16 @@
  #  Copyright:      (c) 2014, Davy Kager <mail@davykager.nl>
  #  License:        LGPLv3
  ##
-from ctypes import WinDLL, CFUNCTYPE, c_bool, c_wchar_p
+from ctypes import cdll, CFUNCTYPE, c_bool, c_wchar_p
 
-# Performance: Use WinDLL instead of cdll, direct stdcall calling convention (matches Tolk.dll Cdecl)
+# Tolk.dll uses __cdecl calling convention. Use cdll (CDLL) instead of WinDLL.
+# Note: On x64, stdcall and cdecl are identical, but on x86 WinDLL would cause
+# stack corruption because the caller and callee disagree on who cleans the stack.
 # Performance: use_errno=False, use_last_error=False skip error checking, reduce overhead
 try:
-    _tolk = WinDLL("Tolk", use_errno=False, use_last_error=False)
+    _tolk = cdll.LoadLibrary("Tolk")
+    _tolk.use_errno = False
+    _tolk.use_last_error = False
 except OSError:
     raise OSError("Failed to load Tolk.dll. Make sure it is in the DLL search path.")
 

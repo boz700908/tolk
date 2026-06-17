@@ -75,9 +75,3 @@ bool ScreenReaderDriverNVDA::IsActive() {
   lastIsActiveTime = currentTime;
   return cachedIsActive;
 }
-bool ScreenReaderDriverNVDA::Output(const wchar_t *str, bool interrupt) {
-  // Beware short-circuiting.
-  const bool speak = Speak(str, interrupt);
-  const bool braille = Braille(str);
-  return (speak || braille);
-}
