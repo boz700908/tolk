@@ -2,9 +2,10 @@
 setlocal enabledelayedexpansion
 
 :: ============================================
-::  Tolk Build Script
+::  Tolk Build Script — Zero-dependency bootstrap
 ::  x86 + x64 + ARM64 (Debug + Release)
 ::  Usage: build.bat [debug|release] [--clean]
+::  Works on a completely clean Windows machine.
 :: ============================================
 
 :: ---------- Parse arguments ----------
@@ -24,13 +25,25 @@ set IS_CI=0
 if defined CI             set IS_CI=1
 if defined APPVEYOR       set IS_CI=1
 if defined GITHUB_ACTIONS set IS_CI=1
-:: CI always does a clean build (no stale cache)
+:: CI always does a clean build
 if %IS_CI%==1 set DO_CLEAN=1
 
 echo ============================================
 echo  Tolk Build Script
 echo  Config: %BUILD_CONFIG%  CI: %IS_CI%  Clean: %DO_CLEAN%
 echo ============================================
+
+:: ---------- Admin check ----------
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo.
+    echo ERROR: This script requires Administrator privileges.
+    echo Chocolatey and Visual Studio Build Tools need admin rights.
+    echo Please right-click the Command Prompt and select "Run as administrator".
+    echo.
+    exit /b 1
+)
+echo [Admin] Running with administrator privileges.
 
 :: ---------- Clean build directories ----------
 if %DO_CLEAN%==1 (
@@ -50,8 +63,8 @@ if %DO_CLEAN%==1 (
 :SAFE_REFRESH_ENV
 for %%P in (
     "%ChocolateyInstall%\bin\RefreshEnv.cmd"
-    "%ALLUSERSPROFILE%\chocolatey\bin\RefreshEnv.cmd"
     "%ProgramData%\chocolatey\bin\RefreshEnv.cmd"
+    "%ALLUSERSPROFILE%\chocolatey\bin\RefreshEnv.cmd"
 ) do (
     if exist %%P (
         call %%P >nul 2>&1
@@ -61,14 +74,43 @@ for %%P in (
 exit /b 0
 
 :: ============================================
+:: Helper: Ensure choco is on PATH. Called after
+:: Chocolatey install or when choco is not found.
+:: ============================================
+:ENSURE_CHOCO_PATH
+for %%P in (
+    "%ChocolateyInstall%\bin\choco.exe"
+    "%ProgramData%\chocolatey\bin\choco.exe"
+    "%ALLUSERSPROFILE%\chocolatey\bin\choco.exe"
+    "C:\ProgramData\chocolatey\bin\choco.exe"
+) do (
+    if exist %%P (
+        for %%D in ("%%~dpP.") do set "PATH=!PATH!;%%~dpP"
+        exit /b 0
+    )
+)
+exit /b 1
+
+:: ============================================
 :: Helper: Chocolatey install with retry
+:: VS packages get verbose output; others are quiet.
 :: ============================================
 :CHOCO_INSTALL
 setlocal
+set "IS_VS=%~1"
 set /a TRY=0
+shift
 :CHOCO_RETRY
-choco install %* -y --no-progress --limit-output --allow-downgrade >nul 2>&1
+if "%IS_VS%"=="--vs" (
+    echo   ^(this may take 10-30 minutes — downloading Visual Studio...^)
+    shift
+    choco install %* -y --no-progress --allow-downgrade
+) else (
+    choco install %* -y --no-progress --limit-output --allow-downgrade >nul 2>&1
+)
 set RC=%errorlevel%
+:: 3010 = reboot required (success for VS installs)
+if %RC% equ 3010 set RC=0
 if %RC% equ 0 (
     call :SAFE_REFRESH_ENV
     endlocal & exit /b 0
@@ -79,6 +121,38 @@ if %TRY% lss 3 (
     goto :CHOCO_RETRY
 )
 endlocal & exit /b %RC%
+
+:: ============================================
+:: Helper: Locate MSBuild using vswhere or fallback
+:: ============================================
+:LOCATE_MSBUILD
+setlocal
+:: Try vswhere first (installed with VS Build Tools)
+set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+if exist "%VSWHERE%" (
+    for /f "usebackq tokens=*" %%p in (`"%VSWHERE%" -latest -products * -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe"`) do (
+        set "MSBUILD_PATH=%%p"
+        goto :MSBUILD_FOUND
+    )
+)
+:: Fallback: search known paths
+for %%P in (
+    "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
+    "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe"
+    "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe"
+    "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
+) do (
+    if exist %%P (
+        set "MSBUILD_PATH=%%P"
+        goto :MSBUILD_FOUND
+    )
+)
+endlocal & exit /b 1
+
+:MSBUILD_FOUND
+for %%P in ("%MSBUILD_PATH%\..") do set "MSBUILD_DIR=%%~dpP"
+set "PATH=%MSBUILD_DIR%;%PATH%"
+endlocal & set "PATH=%MSBUILD_DIR%;%PATH%" & exit /b 0
 
 :: ============================================
 :: Helper: Check tool version against minimum
@@ -103,9 +177,16 @@ if %IS_CI%==1 if "%CI_SKIP%"=="1" (
 where "%TOOL_NAME%" >nul 2>&1
 if %errorlevel% neq 0 (
     echo [%STEP%/7] %TOOL_NAME% not found, installing...
-    call :CHOCO_INSTALL %CHOCO_PKG%
+    if "%CI_SKIP%"=="1" (
+        :: VS install: show progress, it takes a long time
+        call :CHOCO_INSTALL --vs %CHOCO_PKG%
+    ) else (
+        call :CHOCO_INSTALL %CHOCO_PKG%
+    )
     if !errorlevel! equ 0 (
         echo [%STEP%/7] %TOOL_NAME% installed.
+        :: For MSBuild: locate it and add to PATH
+        if "%CI_SKIP%"=="1" call :LOCATE_MSBUILD
     ) else (
         if "%IS_REQUIRED%"=="1" (
             echo ERROR: %TOOL_NAME% installation failed.
@@ -117,6 +198,9 @@ if %errorlevel% neq 0 (
     endlocal & exit /b 0
 )
 
+:: For MSBuild on a clean machine (not CI): ensure it's on PATH
+if "%CI_SKIP%"=="1" if %IS_CI%==0 call :LOCATE_MSBUILD
+
 :: Check version
 for /f "tokens=*" %%v in ('%TOOL_NAME% %VERSION_ARG% 2^>^&1 ^| findstr /r "[0-9][0-9]*\.[0-9][0-9]*"') do set "DETECTED_VERSION=%%v"
 if "%DETECTED_VERSION%"=="" (
@@ -127,9 +211,14 @@ if "%DETECTED_VERSION%"=="" (
 call :VERSION_COMPARE "%DETECTED_VERSION%" "%MIN_VERSION%"
 if %errorlevel% equ 1 (
     echo [%STEP%/7] %TOOL_NAME% v%DETECTED_VERSION% ^< v%MIN_VERSION%, upgrading...
-    call :CHOCO_INSTALL %CHOCO_PKG%
+    if "%CI_SKIP%"=="1" (
+        call :CHOCO_INSTALL --vs %CHOCO_PKG%
+    ) else (
+        call :CHOCO_INSTALL %CHOCO_PKG%
+    )
     if !errorlevel! equ 0 (
         echo [%STEP%/7] %TOOL_NAME% upgraded.
+        if "%CI_SKIP%"=="1" call :LOCATE_MSBUILD
     ) else (
         echo WARNING: %TOOL_NAME% upgrade failed, using v%DETECTED_VERSION%.
     )
@@ -140,14 +229,27 @@ endlocal & exit /b 0
 
 :: ============================================
 :: Helper: Simple version comparison
+:: Handles "v3.20.0", "3.20", "17.0.6", etc.
 :: ============================================
 :VERSION_COMPARE
 setlocal
 set "V1=%~1"
 set "V2=%~2"
-:: Strip leading non-digits
+
+:: Strip leading "v" or "V"
+if /i "%V1:~0,1%"=="v" set "V1=%V1:~1%"
+if /i "%V2:~0,1%"=="v" set "V2=%V2:~1%"
+
+:: Strip leading non-digits (for "Java(TM) SE Runtime Environment 17.0.19" etc.)
+set "CLEAN1="
+for /f "tokens=*" %%a in ('echo !V1! ^| findstr /r "[0-9][0-9]*\.[0-9][0-9]*"') do set "CLEAN1=%%a"
+if not "%CLEAN1%"=="" set "V1=%CLEAN1%"
+
 for /f "tokens=1-3 delims=." %%a in ("%V1%") do set "A1=%%a" & set "A2=%%b" & set "A3=%%c"
 for /f "tokens=1-3 delims=." %%a in ("%V2%") do set "B1=%%a" & set "B2=%%b" & set "B3=%%c"
+:: Strip non-numeric suffix from A3 (e.g. "0+1" -> "0")
+for /f "delims=+-_" %%x in ("%A3%") do set "A3=%%x"
+for /f "delims=+-_" %%x in ("%B3%") do set "B3=%%x"
 if "%A1%"=="" set A1=0
 if "%A2%"=="" set A2=0
 if "%A3%"=="" set A3=0
@@ -162,18 +264,22 @@ if %A3% lss %B3% endlocal & exit /b 1
 endlocal & exit /b 0
 
 :: ============================================
-:: MAIN: Preflight tool checks
+:: MAIN: Preflight — install everything needed
 :: ============================================
 :MAIN
 
 :: Step 1: Chocolatey
 set STEP=1
-where choco >nul 2>&1
+call :ENSURE_CHOCO_PATH
 if %errorlevel% neq 0 (
     echo [1/7] Chocolatey not found, installing...
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-        "iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))" >nul 2>&1
-    set "PATH=%PATH%;%ALLUSERSPROFILE%\chocolatey\bin"
+        "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))" >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo ERROR: Failed to install Chocolatey. Check internet connection.
+        exit /b 1
+    )
+    call :ENSURE_CHOCO_PATH
     echo [1/7] Chocolatey installed.
 ) else (
     echo [1/7] Chocolatey available.
@@ -184,9 +290,12 @@ call :SAFE_REFRESH_ENV
 set STEP=2
 call :CHECK_TOOL "cmake" "3.20" "--version" "cmake" "1" "0"
 
-:: Step 3: MSBuild (VS 2022 Build Tools) — skip on CI
+:: Step 3: MSBuild + VS 2022 Build Tools — skip on CI (pre-installed)
+:: Add ARM64 toolchain for cross-compilation
 set STEP=3
-call :CHECK_TOOL "msbuild" "17.0" "-version" "visualstudio2022buildtools --package-parameters \"--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\"" "1" "1"
+call :CHECK_TOOL "msbuild" "17.0" "-version" ^
+    "visualstudio2022buildtools --package-parameters \"--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.ARM64 --includeRecommended --quiet\"" ^
+    "1" "1"
 
 :: Step 4: Pandoc (>= 2.18)
 set STEP=4
@@ -195,8 +304,6 @@ call :CHECK_TOOL "pandoc" "2.18" "--version" "pandoc" "1" "0"
 :: Step 5: .NET SDK (>= 6.0)
 set STEP=5
 call :CHECK_TOOL "dotnet" "6.0" "--version" "dotnet-sdk" "1" "0"
-:: Restore NuGet packages (no-op for TolkDotNet which has no external deps,
-:: but required for the --no-restore flag in CMake to work)
 where dotnet >nul 2>&1
 if %errorlevel% equ 0 (
     if exist "src\dotnet\TolkDotNet.csproj" (
@@ -210,7 +317,7 @@ if %errorlevel% equ 0 (
     )
 )
 
-:: Step 6: Java (OpenJDK 17)
+:: Step 6: Java (OpenJDK 17) — optional, JAR will be skipped if missing
 set STEP=6
 call :CHECK_TOOL "java" "11" "--version" "openjdk17" "0" "0"
 
@@ -218,8 +325,23 @@ call :CHECK_TOOL "java" "11" "--version" "openjdk17" "0" "0"
 set STEP=7
 call :CHECK_TOOL "ninja" "1.10" "--version" "ninja" "0" "0"
 
+:: Final check: msbuild must be on PATH
+where msbuild >nul 2>&1
+if %errorlevel% neq 0 (
+    call :LOCATE_MSBUILD
+    if %errorlevel% neq 0 (
+        echo.
+        echo ERROR: MSBuild could not be found.
+        echo Visual Studio 2022 Build Tools may not have installed correctly.
+        echo Try running: "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe"
+        exit /b 1
+    )
+)
+
 echo.
-echo [Preflight] All required build tools are ready!
+echo ============================================
+echo  [Preflight] All required tools are ready!
+echo  Ready to build Tolk.
 echo ============================================
 echo.
 
@@ -227,17 +349,21 @@ echo.
 :: BUILD
 :: ============================================
 
+:: Verify MSBuild path
+where msbuild >nul 2>&1
+if %errorlevel% neq 0 (
+    for /f "usebackq tokens=*" %%p in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe" 2^>nul`) do (
+        set "MSBUILD_EXE=%%p"
+    )
+    if defined MSBUILD_EXE (
+        for %%D in ("%MSBUILD_EXE%\..") do set "PATH=%%~dpD;!PATH!"
+    )
+)
+
 :: Determine build targets
 set BUILD_X86=1
 set BUILD_X64=1
 set BUILD_ARM64=1
-
-:: ARM64: only attempt if VS 2022 ARM64 toolchain is present
-where msbuild >nul 2>&1
-if %errorlevel% neq 0 (
-    echo WARNING: MSBuild not found, skipping ARM64 build.
-    set BUILD_ARM64=0
-)
 
 :: x86 build
 if %BUILD_X86%==1 (
@@ -313,7 +439,6 @@ echo ============================================
 echo  Assembling distribution...
 echo ============================================
 
-:: Create dist directories
 if not exist "dist" mkdir dist
 
 :: Copy x86 output
@@ -338,17 +463,14 @@ if %BUILD_X64%==1 (
         xcopy /E /I /Y "build-x64\dist\x64-Release" "dist\x64\Release" >nul
         echo   x64 Release copied.
     )
-    :: Copy .NET wrapper (architecture-independent, built once with x64)
     if exist "build-x64\src\dotnet\publish\TolkDotNet.dll" (
         copy /Y "build-x64\src\dotnet\publish\TolkDotNet.dll" "dist\" >nul
         echo   .NET wrapper copied.
     )
-    :: Copy Java JAR
     if exist "build-x64\src\java\Tolk.jar" (
         copy /Y "build-x64\src\java\Tolk.jar" "dist\" >nul
         echo   Java JAR copied.
     )
-    :: Copy documentation
     if exist "build-x64\docs\README.html" (
         copy /Y "build-x64\docs\README.html" "dist\" >nul
         echo   Documentation copied.
@@ -371,7 +493,7 @@ if %BUILD_ARM64%==1 (
 if exist "LICENSE.txt"   copy /Y "LICENSE.txt"   "dist\" >nul
 if exist "LICENSE-NVDA.txt" copy /Y "LICENSE-NVDA.txt" "dist\" >nul
 
-:: Copy source wrappers (language bindings, architecture-independent)
+:: Copy source wrappers (architecture-independent)
 for %%W in (Tolk.py Tolk.au3 Tolk.pb) do (
     if exist "src\python\%%W"   copy /Y "src\python\%%W"   "dist\" >nul 2>&1
     if exist "src\autoit\%%W"   copy /Y "src\autoit\%%W"   "dist\" >nul 2>&1
