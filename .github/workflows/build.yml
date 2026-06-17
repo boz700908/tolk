@@ -8,29 +8,11 @@ on:
   workflow_dispatch:
 jobs:
   build:
-    name: Build ${{ matrix.arch }} ${{ matrix.config }}
+    name: Build ${{ matrix.arch }}
     runs-on: windows-latest
     strategy:
       matrix:
-        include:
-          - arch: x64
-            cmake_arch: x64
-            config: Debug
-          - arch: x64
-            cmake_arch: x64
-            config: Release
-          - arch: x86
-            cmake_arch: Win32
-            config: Debug
-          - arch: x86
-            cmake_arch: Win32
-            config: Release
-          - arch: arm64
-            cmake_arch: ARM64
-            config: Debug
-          - arch: arm64
-            cmake_arch: ARM64
-            config: Release
+        arch: [x86, x64, arm64]
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v6
@@ -39,53 +21,38 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Setup .NET SDK (for dotnet build)
+      - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Restore .NET Dependencies
-        run: dotnet restore src/dotnet/TolkDotNet.csproj
       - name: Setup Pandoc
         uses: pandoc/actions/setup@v1
-      - name: Configure CMake Project
-        run: cmake -B build -A ${{ matrix.cmake_arch }}
-      - name: Build Project (${{ matrix.config }})
-        run: cmake --build build --config ${{ matrix.config }}
-      - name: Stage Build Artifacts
+      - name: Build with build.bat
         shell: cmd
-        run: |
-          mkdir staging
-          :: Copy ALL files from CMake-generated dist directory (includes DLLs, LIBs, drivers, wrappers)
-          xcopy /E /Y build\dist\${{ matrix.arch }}-${{ matrix.config }}\* staging\
-          :: Copy PDB debug symbols for Debug builds
-          if "${{ matrix.config }}"=="Debug" copy build\src\${{ matrix.config }}\Tolk.pdb staging\
-          :: Copy export file for development linking
-          copy build\src\${{ matrix.config }}\Tolk.exp staging\
-      - name: Upload Architecture Artifact (${{ matrix.config }})
+        run: build.bat --${{ matrix.arch }} --clean
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: tolk-${{ matrix.arch }}-${{ matrix.config }}
-          path: staging\*
+          name: tolk-${{ matrix.arch }}
+          path: dist\**
       - name: Upload .NET Library
-        if: matrix.arch == 'x64' && matrix.config == 'Release'
+        if: matrix.arch == 'x64'
         uses: actions/upload-artifact@v7
         with:
           name: tolk-dotnet
-          path: build\src\dotnet\publish\TolkDotNet.dll
+          path: dist\TolkDotNet.dll
       - name: Upload Java Archive
-        if: matrix.arch == 'x64' && matrix.config == 'Release'
+        if: matrix.arch == 'x64'
         uses: actions/upload-artifact@v7
         with:
           name: tolk-java
-          path: |
-            build\src\java\Tolk.jar
-            build\src\java\classes\**
+          path: dist\Tolk.jar
       - name: Upload Documentation
-        if: matrix.arch == 'x64' && matrix.config == 'Release'
+        if: matrix.arch == 'x64'
         uses: actions/upload-artifact@v7
         with:
           name: tolk-docs
-          path: build\docs\README.html
+          path: dist\README.html
   package:
     name: Create Release Package
     needs: build
@@ -97,42 +64,35 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: artifacts
-      - name: Prepare Release Package (Debug + Release)
+      - name: Assemble Release Package
         shell: cmd
         run: |
-          mkdir dist\x86\Debug
-          mkdir dist\x86\Release
-          mkdir dist\x64\Debug
-          mkdir dist\x64\Release
-          mkdir dist\arm64\Debug
-          mkdir dist\arm64\Release
-          xcopy /E /Y artifacts\tolk-x86-Debug\* dist\x86\Debug\
-          xcopy /E /Y artifacts\tolk-x86-Release\* dist\x86\Release\
-          xcopy /E /Y artifacts\tolk-x64-Debug\* dist\x64\Debug\
-          xcopy /E /Y artifacts\tolk-x64-Release\* dist\x64\Release\
-          xcopy /E /Y artifacts\tolk-arm64-Debug\* dist\arm64\Debug\
-          xcopy /E /Y artifacts\tolk-arm64-Release\* dist\arm64\Release\
-          :: Language wrappers - shared common directory (avoid duplication across architectures)
+          mkdir dist
+          :: Merge per-architecture dist directories
+          xcopy /E /Y artifacts\tolk-x86\* dist\
+          xcopy /E /Y artifacts\tolk-x64\* dist\
+          xcopy /E /Y artifacts\tolk-arm64\* dist\
+          :: .NET, Java, Docs — pick from x64 (architecture-independent)
+          xcopy /E /Y artifacts\tolk-dotnet\* dist\wrappers\dotnet\
+          xcopy /E /Y artifacts\tolk-java\* dist\wrappers\java\
+          mkdir dist\docs
+          xcopy /E /Y artifacts\tolk-docs\* dist\docs\
+          :: Source wrappers — deduplicate from arch dirs into unified wrappers/
           mkdir dist\wrappers\autoit
           mkdir dist\wrappers\purebasic
           mkdir dist\wrappers\python
-          xcopy /E /Y dist\x64\Release\autoit\* dist\wrappers\autoit\
-          xcopy /E /Y dist\x64\Release\purebasic\* dist\wrappers\purebasic\
-          xcopy /E /Y dist\x64\Release\python\* dist\wrappers\python\
+          if exist dist\x64\Release\autoit\* xcopy /E /Y dist\x64\Release\autoit\* dist\wrappers\autoit\
+          if exist dist\x64\Release\purebasic\* xcopy /E /Y dist\x64\Release\purebasic\* dist\wrappers\purebasic\
+          if exist dist\x64\Release\python\* xcopy /E /Y dist\x64\Release\python\* dist\wrappers\python\
           :: Remove duplicate wrapper directories from all architecture folders
-          rmdir /s /q dist\x86\Debug\autoit dist\x86\Debug\purebasic dist\x86\Debug\python 2>nul
-          rmdir /s /q dist\x86\Release\autoit dist\x86\Release\purebasic dist\x86\Release\python 2>nul
-          rmdir /s /q dist\x64\Debug\autoit dist\x64\Debug\purebasic dist\x64\Debug\python 2>nul
-          rmdir /s /q dist\x64\Release\autoit dist\x64\Release\purebasic dist\x64\Release\python 2>nul
-          rmdir /s /q dist\arm64\Debug\autoit dist\arm64\Debug\purebasic dist\arm64\Debug\python 2>nul
-          rmdir /s /q dist\arm64\Release\autoit dist\arm64\Release\purebasic dist\arm64\Release\python 2>nul
-          :: .NET Wrapper - unified wrappers directory
-          xcopy /E /Y artifacts\tolk-dotnet\* dist\wrappers\dotnet\
-          :: Java Wrapper - unified wrappers directory
-          xcopy /E /Y artifacts\tolk-java\* dist\wrappers\java\
-          :: Documentation - separate directory
-          mkdir dist\docs
-          xcopy /E /Y artifacts\tolk-docs\* dist\docs\
+          for %%A in (x86 x64 arm64) do (
+            for %%C in (Debug Release) do (
+              rmdir /s /q dist\%%A\%%C\autoit 2>nul
+              rmdir /s /q dist\%%A\%%C\purebasic 2>nul
+              rmdir /s /q dist\%%A\%%C\python 2>nul
+            )
+          )
+          :: License files
           copy LICENSE* dist\
       - name: Create README for Debug Build
         shell: cmd

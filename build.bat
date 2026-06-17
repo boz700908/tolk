@@ -4,18 +4,27 @@ setlocal enabledelayedexpansion
 :: ============================================
 ::  Tolk Build Script — Zero-dependency bootstrap
 ::  x86 + x64 + ARM64 (Debug + Release)
-::  Usage: build.bat [debug|release] [--clean]
+::  Usage: build.bat [debug|release] [--clean] [--x86] [--x64] [--arm64]
+::  --x86/--x64/--arm64 : build only the specified architecture(s)
+::    (omit all to build all three architectures)
 ::  Works on a completely clean Windows machine.
 :: ============================================
 
 :: ---------- Parse arguments ----------
 set BUILD_CONFIG=Release
 set DO_CLEAN=0
+set BUILD_X86=0
+set BUILD_X64=0
+set BUILD_ARM64=0
+set ARCH_SPECIFIED=0
 :PARSE_ARGS
 if "%~1"=="" goto :START
 if /i "%~1"=="debug"   set BUILD_CONFIG=Debug
 if /i "%~1"=="release" set BUILD_CONFIG=Release
 if /i "%~1"=="--clean" set DO_CLEAN=1
+if /i "%~1"=="--x86"   set ARCH_SPECIFIED=1 & set BUILD_X86=1
+if /i "%~1"=="--x64"   set ARCH_SPECIFIED=1 & set BUILD_X64=1
+if /i "%~1"=="--arm64" set ARCH_SPECIFIED=1 & set BUILD_ARM64=1
 shift
 goto :PARSE_ARGS
 
@@ -33,7 +42,8 @@ echo  Tolk Build Script
 echo  Config: %BUILD_CONFIG%  CI: %IS_CI%  Clean: %DO_CLEAN%
 echo ============================================
 
-:: ---------- Admin check ----------
+:: ---------- Admin check (skip on CI — GitHub Actions has no admin) ----------
+if %IS_CI%==1 goto :SKIP_ADMIN
 net session >nul 2>&1
 if %errorlevel% neq 0 (
     echo.
@@ -44,6 +54,7 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 echo [Admin] Running with administrator privileges.
+:SKIP_ADMIN
 
 :: ---------- Clean build directories ----------
 if %DO_CLEAN%==1 (
@@ -166,6 +177,12 @@ set "CHOCO_PKG=%~4"
 set "IS_REQUIRED=%~5"
 set "CI_SKIP=%~6"
 if "%TOOL_NAME%"=="" endlocal & exit /b 0
+
+:: On GitHub Actions, skip all tool installation (tools provided by setup actions)
+if defined GITHUB_ACTIONS (
+    echo [%STEP%/7] %TOOL_NAME%: using GitHub Actions-provided tool
+    endlocal & exit /b 0
+)
 
 :: On CI, skip VS/MSBuild installation (VS 2022 is pre-installed)
 if %IS_CI%==1 if "%CI_SKIP%"=="1" (
@@ -361,9 +378,12 @@ if %errorlevel% neq 0 (
 )
 
 :: Determine build targets
-set BUILD_X86=1
-set BUILD_X64=1
-set BUILD_ARM64=1
+:: If no arch flag was specified, build all three architectures
+if %ARCH_SPECIFIED%==0 (
+    set BUILD_X86=1
+    set BUILD_X64=1
+    set BUILD_ARM64=1
+)
 
 :: x86 build
 if %BUILD_X86%==1 (
