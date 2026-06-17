@@ -40,7 +40,6 @@ public:
     bool IsSpeaking() override;
     bool Silence() override;
     bool IsActive() override;
-    bool Output(const wchar_t *str, bool interrupt) override;
     static void __stdcall SpeakCompleteCallback(int reason);
 private:
     HINSTANCE controller;
@@ -48,9 +47,9 @@ private:
     volatile LONG isSpeaking;
     volatile LONG speakCompleteReason;
     // Performance: IsActive result cache (100ms timeout, avoids frequent cross-process calls)
-    static const DWORD CACHE_TIMEOUT_MS = 100;
-    DWORD lastIsActiveTime;
-    bool cachedIsActive;
+    // CACHE_TIMEOUT_MS is inherited from ScreenReaderDriver base class
+    // Cached active state and timestamp (inherited from base class)
+    // No need to re-declare here — use base class cachedIsActive / lastIsActiveTime directly.
     BoyCtrlInitialize BoyInit;
     BoyCtrlUninitialize BoyUninit;
     BoyCtrlIsReaderRunning BoyIsRunning;

@@ -28,7 +28,6 @@ public:
   bool IsSpeaking() override;
   bool Silence() override;
   bool IsActive() override;
-  bool Output(const wchar_t *str, bool interrupt) override;
 private:
   typedef int (WINAPI *ZDSR_InitTTS)(int type, const WCHAR* channelName, BOOL bKeyDownInterrupt);
   typedef int (WINAPI *ZDSR_GetSpeakState)(void);

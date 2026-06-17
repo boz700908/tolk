@@ -8,7 +8,6 @@
 #include <windows.h>
 #include <vector>
 #include <memory>
-#include <time.h>
 #include "Tolk.h"
 #include "TolkDebug.h"
 #include "ScreenReaderDriverBOY.h"
@@ -23,10 +22,6 @@
 
 // Performance: SRWLock instead of CRITICAL_SECTION (lighter, supports read/write separation)
 static SRWLOCK g_srwLock = SRWLOCK_INIT;
-// Performance: Screen reader active state cache (100ms timeout, avoids frequent expensive IsActive() calls)
-static const DWORD CACHE_TIMEOUT_MS = 100;
-static DWORD g_lastDetectTime = 0;
-static ScreenReaderDriver *g_cachedActiveDriver = nullptr;
 
 static bool g_comInitializedByUs = false;
 static bool g_isLoaded = false;
@@ -43,6 +38,56 @@ enum TolkInternalError {
     TOLK_ERR_LOAD_EXCEPTION = 1,    // Exception during driver initialization
     TOLK_ERR_COM_INIT_FAILED = 2    // COM initialization failed
 };
+
+// Cached screen reader name for Tolk_DetectScreenReader().
+// Using a const wchar_t* (points to driver's static string) avoids UAF:
+// the driver's name string outlives any cached pointer because it's a
+// compile-time constant stored in the driver's data segment.
+static const wchar_t *g_cachedName = nullptr;
+static DWORD g_lastDetectTime = 0;
+static const DWORD CACHE_TIMEOUT_MS = 100;
+
+// Internal: detect active screen reader. Caller MUST hold g_srwLock.
+// Returns the driver name, or nullptr if none detected.
+// Updates g_currentScreenReaderDriver and the name cache.
+static const wchar_t * DetectCurrentScreenReader() {
+  DWORD currentTime = GetTickCount();
+  // Check name cache (valid for CACHE_TIMEOUT_MS)
+  if (g_cachedName && (currentTime - g_lastDetectTime) < CACHE_TIMEOUT_MS) {
+    return g_cachedName;
+  }
+
+  if (g_currentScreenReaderDriver && (g_preferSAPI || g_currentScreenReaderDriver != g_sapi.get()) && g_currentScreenReaderDriver->IsActive()) {
+    g_cachedName = g_currentScreenReaderDriver->GetName();
+    g_lastDetectTime = currentTime;
+    return g_cachedName;
+  }
+  if (g_trySAPI && g_preferSAPI && g_sapi && g_sapi->IsActive()) {
+    g_currentScreenReaderDriver = g_sapi.get();
+    g_cachedName = g_currentScreenReaderDriver->GetName();
+    g_lastDetectTime = currentTime;
+    return g_cachedName;
+  }
+  for (const auto &driver : g_screenReaderDrivers) {
+    if (driver.get() != g_currentScreenReaderDriver && driver->IsActive()) {
+      g_currentScreenReaderDriver = driver.get();
+      g_cachedName = g_currentScreenReaderDriver->GetName();
+      g_lastDetectTime = currentTime;
+      return g_cachedName;
+    }
+  }
+  if (g_trySAPI && !g_preferSAPI && g_sapi && g_sapi->IsActive()) {
+    g_currentScreenReaderDriver = g_sapi.get();
+    g_cachedName = g_currentScreenReaderDriver->GetName();
+    g_lastDetectTime = currentTime;
+    return g_cachedName;
+  }
+  g_currentScreenReaderDriver = nullptr;
+  g_cachedName = nullptr;
+  g_lastDetectTime = currentTime;
+  return nullptr;
+}
+
 BOOL WINAPI DllMain(HINSTANCE, DWORD reason, LPVOID) {
   // SRWLock is statically initialized, no need to init/destroy in DllMain
   (void)reason;
@@ -95,7 +140,6 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Load() {
   }
   catch (...) {
     TOLK_LOG_ERROR("EXCEPTION during driver initialization!");
-    // Record error for debugging (can be inspected via debugger)
     InterlockedExchange(&g_lastError, TOLK_ERR_LOAD_EXCEPTION);
     g_sapi.reset();
     g_screenReaderDrivers.clear();
@@ -103,9 +147,8 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Load() {
     return;
   }
   g_isLoaded = true;
-  // Reset cache
   g_lastDetectTime = 0;
-  g_cachedActiveDriver = nullptr;
+  g_cachedName = nullptr;
   TOLK_LOG_INFO("Tolk loaded successfully");
   ReleaseSRWLockExclusive(&g_srwLock);
 }
@@ -121,9 +164,8 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Unload() {
     g_currentScreenReaderDriver = nullptr;
     g_sapi.reset();
     g_screenReaderDrivers.clear();
-    // Reset cache
     g_lastDetectTime = 0;
-    g_cachedActiveDriver = nullptr;
+    g_cachedName = nullptr;
   }
   if (g_comInitializedByUs) {
     TOLK_LOG_INFO("Uninitializing COM");
@@ -146,9 +188,8 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_TrySAPI(bool trySAPI) {
     else if (!g_trySAPI && g_sapi)
       g_sapi.reset();
     g_currentScreenReaderDriver = nullptr;
-    // Reset cache
     g_lastDetectTime = 0;
-    g_cachedActiveDriver = nullptr;
+    g_cachedName = nullptr;
   }
   ReleaseSRWLockExclusive(&g_srwLock);
 }
@@ -161,140 +202,90 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_PreferSAPI(bool preferSAPI) {
   g_preferSAPI = preferSAPI;
   if (Tolk_IsLoaded() && g_trySAPI && g_sapi) {
     g_currentScreenReaderDriver = nullptr;
-    // Reset cache
     g_lastDetectTime = 0;
-    g_cachedActiveDriver = nullptr;
+    g_cachedName = nullptr;
   }
   ReleaseSRWLockExclusive(&g_srwLock);
 }
 TOLK_DLL_DECLSPEC const wchar_t * TOLK_CALL Tolk_DetectScreenReader() {
-  // Performance: Check cache validity first (100ms timeout)
-  DWORD currentTime = GetTickCount();
-  if (g_cachedActiveDriver && (currentTime - g_lastDetectTime) < CACHE_TIMEOUT_MS) {
-    return g_cachedActiveDriver->GetName();
-  }
-
   AcquireSRWLockExclusive(&g_srwLock);
   if (!Tolk_IsLoaded()) {
     ReleaseSRWLockExclusive(&g_srwLock);
     return nullptr;
   }
-  // Re-check cache (avoid updates during lock wait)
-  currentTime = GetTickCount();
-  if (g_cachedActiveDriver && (currentTime - g_lastDetectTime) < CACHE_TIMEOUT_MS) {
-    const wchar_t *name = g_cachedActiveDriver->GetName();
-    ReleaseSRWLockExclusive(&g_srwLock);
-    return name;
-  }
-
-  if (g_currentScreenReaderDriver && (g_preferSAPI || g_currentScreenReaderDriver != g_sapi.get()) && g_currentScreenReaderDriver->IsActive()) {
-    // Update cache
-    g_cachedActiveDriver = g_currentScreenReaderDriver;
-    g_lastDetectTime = currentTime;
-    const wchar_t *name = g_currentScreenReaderDriver->GetName();
-    ReleaseSRWLockExclusive(&g_srwLock);
-    return name;
-  }
-  if (g_trySAPI && g_preferSAPI && g_sapi && g_sapi->IsActive()) {
-    g_currentScreenReaderDriver = g_sapi.get();
-    // Update cache
-    g_cachedActiveDriver = g_currentScreenReaderDriver;
-    g_lastDetectTime = currentTime;
-    const wchar_t *name = g_currentScreenReaderDriver->GetName();
-    ReleaseSRWLockExclusive(&g_srwLock);
-    return name;
-  }
-  for (const auto &driver : g_screenReaderDrivers) {
-    if (driver.get() != g_currentScreenReaderDriver && driver->IsActive()) {
-      g_currentScreenReaderDriver = driver.get();
-      // Update cache
-      g_cachedActiveDriver = g_currentScreenReaderDriver;
-      g_lastDetectTime = currentTime;
-      const wchar_t *name = g_currentScreenReaderDriver->GetName();
-      ReleaseSRWLockExclusive(&g_srwLock);
-      return name;
-    }
-  }
-  if (g_trySAPI && !g_preferSAPI && g_sapi && g_sapi->IsActive()) {
-    g_currentScreenReaderDriver = g_sapi.get();
-    // Update cache
-    g_cachedActiveDriver = g_currentScreenReaderDriver;
-    g_lastDetectTime = currentTime;
-    const wchar_t *name = g_currentScreenReaderDriver->GetName();
-    ReleaseSRWLockExclusive(&g_srwLock);
-    return name;
-  }
-  g_currentScreenReaderDriver = nullptr;
-  g_cachedActiveDriver = nullptr;
-  g_lastDetectTime = currentTime;
+  const wchar_t *name = DetectCurrentScreenReader();
   ReleaseSRWLockExclusive(&g_srwLock);
-  return nullptr;
+  return name;
 }
 TOLK_DLL_DECLSPEC bool TOLK_CALL Tolk_HasSpeech() {
-  // Use cache first to avoid locking
-  if (!Tolk_DetectScreenReader())
-    return false;
   AcquireSRWLockExclusive(&g_srwLock);
+  if (!Tolk_IsLoaded() || !DetectCurrentScreenReader()) {
+    ReleaseSRWLockExclusive(&g_srwLock);
+    return false;
+  }
   bool result = g_currentScreenReaderDriver->HasSpeech();
   ReleaseSRWLockExclusive(&g_srwLock);
   return result;
 }
 TOLK_DLL_DECLSPEC bool TOLK_CALL Tolk_HasBraille() {
-  // Use cache first to avoid locking
-  if (!Tolk_DetectScreenReader())
-    return false;
   AcquireSRWLockExclusive(&g_srwLock);
+  if (!Tolk_IsLoaded() || !DetectCurrentScreenReader()) {
+    ReleaseSRWLockExclusive(&g_srwLock);
+    return false;
+  }
   bool result = g_currentScreenReaderDriver->HasBraille();
   ReleaseSRWLockExclusive(&g_srwLock);
   return result;
 }
 TOLK_DLL_DECLSPEC bool TOLK_CALL Tolk_Output(const wchar_t *str, bool interrupt) {
-  if (!str)
-    return false;
-  // Use cache first to avoid locking
-  if (!Tolk_DetectScreenReader())
-    return false;
+  if (!str) return false;
   AcquireSRWLockExclusive(&g_srwLock);
+  if (!Tolk_IsLoaded() || !DetectCurrentScreenReader()) {
+    ReleaseSRWLockExclusive(&g_srwLock);
+    return false;
+  }
   bool result = g_currentScreenReaderDriver->Output(str, interrupt);
   ReleaseSRWLockExclusive(&g_srwLock);
   return result;
 }
 TOLK_DLL_DECLSPEC bool TOLK_CALL Tolk_Speak(const wchar_t *str, bool interrupt) {
-  if (!str)
-    return false;
-  // Use cache first to avoid locking
-  if (!Tolk_DetectScreenReader())
-    return false;
+  if (!str) return false;
   AcquireSRWLockExclusive(&g_srwLock);
+  if (!Tolk_IsLoaded() || !DetectCurrentScreenReader()) {
+    ReleaseSRWLockExclusive(&g_srwLock);
+    return false;
+  }
   bool result = g_currentScreenReaderDriver->Speak(str, interrupt);
   ReleaseSRWLockExclusive(&g_srwLock);
   return result;
 }
 TOLK_DLL_DECLSPEC bool TOLK_CALL Tolk_Braille(const wchar_t *str) {
-  if (!str)
-    return false;
-  // Use cache first to avoid locking
-  if (!Tolk_DetectScreenReader())
-    return false;
+  if (!str) return false;
   AcquireSRWLockExclusive(&g_srwLock);
+  if (!Tolk_IsLoaded() || !DetectCurrentScreenReader()) {
+    ReleaseSRWLockExclusive(&g_srwLock);
+    return false;
+  }
   bool result = g_currentScreenReaderDriver->Braille(str);
   ReleaseSRWLockExclusive(&g_srwLock);
   return result;
 }
 TOLK_DLL_DECLSPEC bool TOLK_CALL Tolk_IsSpeaking() {
-  // Use cache first to avoid locking
-  if (!Tolk_DetectScreenReader())
-    return false;
   AcquireSRWLockExclusive(&g_srwLock);
+  if (!Tolk_IsLoaded() || !DetectCurrentScreenReader()) {
+    ReleaseSRWLockExclusive(&g_srwLock);
+    return false;
+  }
   bool result = g_currentScreenReaderDriver->IsSpeaking();
   ReleaseSRWLockExclusive(&g_srwLock);
   return result;
 }
 TOLK_DLL_DECLSPEC bool TOLK_CALL Tolk_Silence() {
-  // Use cache first to avoid locking
-  if (!Tolk_DetectScreenReader())
-    return false;
   AcquireSRWLockExclusive(&g_srwLock);
+  if (!Tolk_IsLoaded() || !DetectCurrentScreenReader()) {
+    ReleaseSRWLockExclusive(&g_srwLock);
+    return false;
+  }
   bool result = g_currentScreenReaderDriver->Silence();
   ReleaseSRWLockExclusive(&g_srwLock);
   return result;

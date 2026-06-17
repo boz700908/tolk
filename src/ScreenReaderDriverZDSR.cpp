@@ -68,9 +68,9 @@ bool ScreenReaderDriverZDSR::IsSpeaking() {
   return false;
 }
 bool ScreenReaderDriverZDSR::IsActive() {
-  // Performance: Check cache first (100ms timeout)
+  // Performance: Check cache first (CACHE_TIMEOUT_MS timeout)
   DWORD currentTime = GetTickCount();
-  if ((currentTime - lastIsActiveTime) < 100) {
+  if ((currentTime - lastIsActiveTime) < CACHE_TIMEOUT_MS) {
     return cachedIsActive;
   }
 
@@ -87,9 +87,4 @@ bool ScreenReaderDriverZDSR::IsActive() {
   }
   lastIsActiveTime = currentTime;
   return cachedIsActive;
-}
-bool ScreenReaderDriverZDSR::Output(const wchar_t *str, bool interrupt) {
-  const bool speak = Speak(str, interrupt);
-  const bool braille = Braille(str);
-  return (speak || braille);
 }

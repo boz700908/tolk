@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
 project(Tolk VERSION 2.0.0 LANGUAGES C CXX)
 
-# Modern C++20 standard with Windows 7 runtime compatibility
-# C++20 features available, but generated binaries still compatible with Windows 7+
-set(CMAKE_CXX_STANDARD 20)
+# Modern C++17 standard with Windows 7 runtime compatibility
+# C++17 features available, but generated binaries still compatible with Windows 7+
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -14,8 +14,7 @@ set(CMAKE_C_EXTENSIONS OFF)
 
 # MSVC: Enable modern compiler features, strict conformance, Windows 7 compatible
 if(MSVC)
-  # Enable all modern C++20 features
-  add_compile_options(/permissive- /Zc:__cplusplus /Zc:preprocessor)
+  add_compile_options(/permissive-)
   # Optimization flags
   add_compile_options(/Oi /Ot /GL)
   # Windows 7 compatibility (target subsystem version)

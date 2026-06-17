@@ -40,7 +40,8 @@ bool ScreenReaderDriverSAPI::Recover() {
     }
 
     // Reinitialize - uses system default voice settings automatically
-    HRESULT hr = CoCreateInstance(CLSID_SpVoice, nullptr, CLSCTX_INPROC_SERVER, IID_ISpVoice, (void **)&controller);
+    HRESULT hr = CoCreateInstance(CLSID_SpVoice, nullptr, CLSCTX_ALL,
+    IID_ISpVoice, (void**)&controller);
     if (FAILED(hr)) {
         TOLK_LOG_ERROR("SAPI: Recovery failed, hr=0x%08X", hr);
         return false;
@@ -137,9 +138,9 @@ bool ScreenReaderDriverSAPI::Silence() {
     // This is the recommended way to stop speech in SAPI 5.4
     HRESULT hr = controller->Skip(L"Sentence", 1000, nullptr);
     if (FAILED(hr)) {
-        // Fallback to traditional method
-        const DWORD flags = SPF_ASYNC | SPF_IS_NOT_XML | SPF_PURGEBEFORESPEAK;
-        hr = controller->Speak(nullptr, flags, nullptr);
+        // Fallback to traditional method (empty string for purge)
+      const DWORD flags = SPF_ASYNC | SPF_IS_NOT_XML | SPF_PURGEBEFORESPEAK;
+      hr = controller->Speak(L"", flags, nullptr);
     }
 
     if (SUCCEEDED(hr)) {

@@ -140,27 +140,22 @@ bool ScreenReaderDriverBOY::Silence()
 }
 bool ScreenReaderDriverBOY::IsActive()
 {
-    // Performance: Check cache first (100ms timeout)
+    // Performance: Check cache first (100ms timeout, no lock needed: read-only)
     DWORD currentTime = GetTickCount();
     if ((currentTime - lastIsActiveTime) < CACHE_TIMEOUT_MS) {
         return cachedIsActive;
     }
 
-    // Per official documentation: Use BoyCtrlIsReaderRunning()
-    // Must have called BoyCtrlInitialize first (done in constructor)
+    AcquireSRWLockShared(&srwLock);
     if (!controller || !BoyIsRunning) {
         cachedIsActive = false;
         lastIsActiveTime = currentTime;
+        ReleaseSRWLockShared(&srwLock);
         return false;
     }
 
-    cachedIsActive = (BoyIsRunning() != false);
+    cachedIsActive = BoyIsRunning();
     lastIsActiveTime = currentTime;
+    ReleaseSRWLockShared(&srwLock);
     return cachedIsActive;
-}
-bool ScreenReaderDriverBOY::Output(const wchar_t* str, bool interrupt)
-{
-    bool spoke = Speak(str, interrupt);
-    bool brailled = Braille(str);
-    return spoke || brailled;
 }

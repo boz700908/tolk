@@ -57,7 +57,7 @@ bool ScreenReaderDriverSA::Silence() {
 bool ScreenReaderDriverSA::IsActive() {
   // Performance: Check cache first (100ms timeout)
   DWORD currentTime = GetTickCount();
-  if ((currentTime - lastIsActiveTime) < 100) {
+  if ((currentTime - lastIsActiveTime) < CACHE_TIMEOUT_MS) {
     return cachedIsActive;
   }
 
@@ -68,10 +68,4 @@ bool ScreenReaderDriverSA::IsActive() {
   }
   lastIsActiveTime = currentTime;
   return cachedIsActive;
-}
-bool ScreenReaderDriverSA::Output(const wchar_t *str, bool interrupt) {
-  // Beware short-circuiting.
-  const bool speak = Speak(str, interrupt);
-  const bool braille = Braille(str);
-  return (speak || braille);
 }

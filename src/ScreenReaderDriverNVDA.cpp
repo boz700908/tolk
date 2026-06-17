@@ -62,7 +62,7 @@ bool ScreenReaderDriverNVDA::Silence() {
 bool ScreenReaderDriverNVDA::IsActive() {
   // Performance: Check cache first (100ms timeout)
   DWORD currentTime = GetTickCount();
-  if ((currentTime - lastIsActiveTime) < 100) {
+  if ((currentTime - lastIsActiveTime) < CACHE_TIMEOUT_MS) {
     return cachedIsActive;
   }
 
