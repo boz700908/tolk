@@ -117,7 +117,7 @@ if "%IS_VS%"=="--vs" (
     shift
     choco install %* -y --no-progress --allow-downgrade
 ) else (
-    choco install %* -y --no-progress --limit-output --allow-downgrade >nul 2>&1
+    choco install %* -y --no-progress --limit-output --allow-downgrade
 )
 set RC=%errorlevel%
 :: 3010 = reboot required (success for VS installs)
@@ -291,7 +291,7 @@ call :ENSURE_CHOCO_PATH
 if %errorlevel% neq 0 (
     echo [1/7] Chocolatey not found, installing...
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-        "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))" >nul 2>&1
+        "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
     if %errorlevel% neq 0 (
         echo ERROR: Failed to install Chocolatey. Check internet connection.
         exit /b 1
@@ -325,7 +325,7 @@ where dotnet >nul 2>&1
 if %errorlevel% equ 0 (
     if exist "src\dotnet\TolkDotNet.csproj" (
         echo [5/7] Running dotnet restore...
-        dotnet restore "src\dotnet\TolkDotNet.csproj" >nul 2>&1
+        dotnet restore "src\dotnet\TolkDotNet.csproj"
         if !errorlevel! equ 0 (
             echo [5/7] dotnet restore completed.
         ) else (
@@ -464,11 +464,11 @@ if not exist "dist" mkdir dist
 :: Copy x86 output
 if %BUILD_X86%==1 (
     if exist "build-x86\dist\x86-Debug" (
-        xcopy /E /I /Y "build-x86\dist\x86-Debug" "dist\x86\Debug" >nul
+        xcopy /E /I /Y "build-x86\dist\x86-Debug" "dist\x86\Debug"
         echo   x86 Debug copied.
     )
     if exist "build-x86\dist\x86-Release" (
-        xcopy /E /I /Y "build-x86\dist\x86-Release" "dist\x86\Release" >nul
+        xcopy /E /I /Y "build-x86\dist\x86-Release" "dist\x86\Release"
         echo   x86 Release copied.
     )
 )
@@ -476,23 +476,23 @@ if %BUILD_X86%==1 (
 :: Copy x64 output
 if %BUILD_X64%==1 (
     if exist "build-x64\dist\x64-Debug" (
-        xcopy /E /I /Y "build-x64\dist\x64-Debug" "dist\x64\Debug" >nul
+        xcopy /E /I /Y "build-x64\dist\x64-Debug" "dist\x64\Debug"
         echo   x64 Debug copied.
     )
     if exist "build-x64\dist\x64-Release" (
-        xcopy /E /I /Y "build-x64\dist\x64-Release" "dist\x64\Release" >nul
+        xcopy /E /I /Y "build-x64\dist\x64-Release" "dist\x64\Release"
         echo   x64 Release copied.
     )
     if exist "build-x64\src\dotnet\publish\TolkDotNet.dll" (
-        copy /Y "build-x64\src\dotnet\publish\TolkDotNet.dll" "dist\" >nul
+        copy /Y "build-x64\src\dotnet\publish\TolkDotNet.dll" "dist\"
         echo   .NET wrapper copied.
     )
     if exist "build-x64\src\java\Tolk.jar" (
-        copy /Y "build-x64\src\java\Tolk.jar" "dist\" >nul
+        copy /Y "build-x64\src\java\Tolk.jar" "dist\"
         echo   Java JAR copied.
     )
     if exist "build-x64\docs\README.html" (
-        copy /Y "build-x64\docs\README.html" "dist\" >nul
+        copy /Y "build-x64\docs\README.html" "dist\"
         echo   Documentation copied.
     )
 )
@@ -500,24 +500,24 @@ if %BUILD_X64%==1 (
 :: Copy ARM64 output
 if %BUILD_ARM64%==1 (
     if exist "build-arm64\dist\ARM64-Debug" (
-        xcopy /E /I /Y "build-arm64\dist\ARM64-Debug" "dist\arm64\Debug" >nul
+        xcopy /E /I /Y "build-arm64\dist\ARM64-Debug" "dist\arm64\Debug"
         echo   ARM64 Debug copied.
     )
     if exist "build-arm64\dist\ARM64-Release" (
-        xcopy /E /I /Y "build-arm64\dist\ARM64-Release" "dist\arm64\Release" >nul
+        xcopy /E /I /Y "build-arm64\dist\ARM64-Release" "dist\arm64\Release"
         echo   ARM64 Release copied.
     )
 )
 
 :: Copy license files
-if exist "LICENSE.txt"   copy /Y "LICENSE.txt"   "dist\" >nul
-if exist "LICENSE-NVDA.txt" copy /Y "LICENSE-NVDA.txt" "dist\" >nul
+if exist "LICENSE.txt"   copy /Y "LICENSE.txt"   "dist\"
+if exist "LICENSE-NVDA.txt" copy /Y "LICENSE-NVDA.txt" "dist\"
 
 :: Copy source wrappers (architecture-independent)
 for %%W in (Tolk.py Tolk.au3 Tolk.pb) do (
-    if exist "src\python\%%W"   copy /Y "src\python\%%W"   "dist\" >nul 2>&1
-    if exist "src\autoit\%%W"   copy /Y "src\autoit\%%W"   "dist\" >nul 2>&1
-    if exist "src\purebasic\%%W" copy /Y "src\purebasic\%%W" "dist\" >nul 2>&1
+    if exist "src\python\%%W"   copy /Y "src\python\%%W"   "dist\"
+    if exist "src\autoit\%%W"   copy /Y "src\autoit\%%W"   "dist\"
+    if exist "src\purebasic\%%W" copy /Y "src\purebasic\%%W" "dist\"
 )
 
 echo.
