@@ -3,6 +3,17 @@ setlocal enabledelayedexpansion
 echo ============================================
 echo  Tolk Build Script - x86 + x64 + ARM64 (Debug + Release)
 echo ============================================
+
+:: Detect CI environment (skip tool installs that are pre-provisioned)
+set IS_CI=0
+if defined CI set IS_CI=1
+if defined APPVEYOR set IS_CI=1
+if defined GITHUB_ACTIONS set IS_CI=1
+if %IS_CI%==1 (
+    echo [CI] Running in CI environment - skipping tool installation checks
+    goto :SKIP_TOOL_CHECKS
+)
+
 echo [Preflight] Checking and installing required build tools...
 echo.
 
@@ -17,15 +28,30 @@ set RETRY_COUNT=0
 set MAX_RETRIES=3
 
 :CHOCO_LOOP_START
-choco install %* -y >nul 2>&1
+choco install %* -y --no-progress --limit-output >nul 2>&1
 set EXIT_CODE=%errorlevel%
-if %EXIT_CODE% equ 0 endlocal & exit /b 0
+if %EXIT_CODE% equ 0 (
+    call :SAFE_REFRESH_ENV
+    endlocal & exit /b 0
+)
 
 set /a RETRY_COUNT+=1
 if %RETRY_COUNT% geq %MAX_RETRIES% endlocal & exit /b %EXIT_CODE%
 
-timeout /t 2 /nobreak >nul
+:: Use ping for delay instead of timeout (more compatible)
+ping -n 3 127.0.0.1 >nul
 goto CHOCO_LOOP_START
+
+:: Safe environment refresh
+:SAFE_REFRESH_ENV
+if exist "%ChocolateyInstall%\bin\RefreshEnv.cmd" (
+    call "%ChocolateyInstall%\bin\RefreshEnv.cmd" >nul 2>&1
+) else if exist "%ALLUSERSPROFILE%\chocolatey\bin\RefreshEnv.cmd" (
+    call "%ALLUSERSPROFILE%\chocolatey\bin\RefreshEnv.cmd" >nul 2>&1
+) else if exist "C:\ProgramData\chocolatey\bin\RefreshEnv.cmd" (
+    call "C:\ProgramData\chocolatey\bin\RefreshEnv.cmd" >nul 2>&1
+)
+exit /b 0
 
 :: ============================================
 :: Helper 2: Version comparison function
@@ -109,7 +135,6 @@ if %errorlevel% neq 0 (
     echo [%STEP%/7] %TOOL_NAME% not found, installing...
     call :CHOCO_INSTALL %CHOCO_PKG%
     if !errorlevel! equ 0 (
-        call RefreshEnv.cmd >nul 2>&1
         echo [%STEP%/7] %TOOL_NAME% installed successfully.
     ) else (
         if "%IS_REQUIRED%"=="1" (
@@ -139,7 +164,6 @@ if %errorlevel% equ 1 (
     echo [%STEP%/7] %TOOL_NAME% %DETECTED_VERSION% is below minimum, upgrading...
     call :CHOCO_INSTALL %CHOCO_PKG%
     if !errorlevel! equ 0 (
-        call RefreshEnv.cmd >nul 2>&1
         echo [%STEP%/7] %TOOL_NAME% upgraded to latest version.
     ) else (
         echo WARNING: %TOOL_NAME% upgrade failed, using current version.
@@ -168,10 +192,8 @@ if %errorlevel% neq 0 (
     echo [%STEP%/7] Chocolatey already installed.
 )
 
-:: Refresh environment variables for newly installed tools
-if exist "C:\ProgramData\chocolatey\bin\RefreshEnv.cmd" (
-    call "C:\ProgramData\chocolatey\bin\RefreshEnv.cmd" >nul 2>&1
-)
+:: Refresh environment using safe helper
+call :SAFE_REFRESH_ENV
 
 :: ============================================
 :: Step 2: CMake >= 3.20 (REQUIRED)
@@ -188,7 +210,6 @@ if %errorlevel% neq 0 (
     echo [%STEP%/7] MSBuild / Visual Studio Build Tools not found, installing...
     call :CHOCO_INSTALL visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
     if !errorlevel! equ 0 (
-        call RefreshEnv.cmd >nul 2>&1
         echo [%STEP%/7] Visual Studio 2022 Build Tools installed successfully.
     ) else (
         echo WARNING: Build Tools installation failed, trying to continue...
@@ -237,7 +258,6 @@ if %errorlevel% neq 0 (
     echo [%STEP%/7] .NET SDK not found, installing...
     call :CHOCO_INSTALL dotnet-sdk
     if !errorlevel! equ 0 (
-        call RefreshEnv.cmd >nul 2>&1
         echo [%STEP%/7] .NET SDK installed successfully.
     ) else (
         echo WARNING: .NET SDK installation failed, .NET wrapper will be skipped.
@@ -251,11 +271,11 @@ if %errorlevel% neq 0 (
 :: ============================================
 if exist "src\dotnet\TolkDotNet.csproj" (
     echo [5b/7] Running NuGet restore for .NET project...
-    dotnet restore src\dotnet\TolkDotNet.csproj >nul 2>&1
+    dotnet restore "src\dotnet\TolkDotNet.csproj" >nul 2>&1
     if !errorlevel! equ 0 (
         echo [5b/7] NuGet restore completed.
     ) else (
-        echo WARNING: NuGet restore failed.
+        echo WARNING: NuGet restore failed, build may use cached packages.
     )
 )
 
@@ -268,7 +288,6 @@ if %errorlevel% neq 0 (
     echo [%STEP%/7] Java not found, installing OpenJDK 17...
     call :CHOCO_INSTALL openjdk17
     if !errorlevel! equ 0 (
-        call RefreshEnv.cmd >nul 2>&1
         echo [%STEP%/7] OpenJDK 17 installed successfully.
     ) else (
         echo WARNING: Java installation failed, Java JAR will be skipped.
@@ -292,7 +311,6 @@ if %errorlevel% neq 0 (
         echo [%STEP%/7] Java !JAVA_MAJOR! is below 11, upgrading to OpenJDK 17...
         call :CHOCO_INSTALL openjdk17
         if !errorlevel! equ 0 (
-            call RefreshEnv.cmd >nul 2>&1
             echo [%STEP%/7] OpenJDK 17 installed successfully.
         ) else (
             echo WARNING: Java upgrade failed. Release parameter may not work.
@@ -310,6 +328,11 @@ call :CHECK_TOOL "ninja" "ninja --version" "1.10.0" "ninja" "1"
 
 echo.
 echo [Preflight] All required build tools are ready!
+echo ============================================
+echo.
+
+:SKIP_TOOL_CHECKS
+echo [Preflight] Build environment ready.
 echo ============================================
 echo.
 
@@ -380,8 +403,11 @@ if %errorlevel% neq 0 (
 :: ARM64 build
 echo.
 echo [7/11] Configuring ARM64...
-cmake -B build-arm64 -A ARM64
-if %errorlevel% neq 0 echo WARNING: ARM64 toolchain not available, skipping ARM64 build. & goto skip_arm64
+cmake -B build-arm64 -A ARM64 2>&1
+if %errorlevel% neq 0 (
+    echo WARNING: ARM64 toolchain not available, skipping ARM64 build.
+    goto skip_arm64
+)
 
 if %BUILD_DEBUG%==1 (
 echo.

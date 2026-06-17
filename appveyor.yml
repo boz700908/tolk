@@ -1,18 +1,25 @@
 ---
 version: 1.0.{build}
 image: Visual Studio 2022
-# 所有工具安装逻辑统一在 build.bat 中处理
-# appveyor.yml 只负责调用构建脚本，避免配置重复
+
+# AppVeyor VS 2022 image already has:
+#   CMake, MSBuild, .NET SDK, Java, Pandoc, Ninja
+# build.bat detects CI and skips tool installation checks.
+
 build_script:
   - cmd: build.bat
-# 构建产物归档
+
+# Build artifacts
 artifacts:
   - path: dist
     name: Tolk-Build-Output
-# 关闭自动测试
+
+# No test suite yet
 test: false
-# 缓存构建目录加速后续构建
+
+# Cache build directories for faster incremental builds
 cache:
   - build-x86
   - build-x64
   - build-arm64
+  - '%USERPROFILE%\.nuget\packages'
