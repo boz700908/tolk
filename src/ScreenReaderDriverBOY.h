@@ -29,15 +29,15 @@ public:
   bool Output(const wchar_t *str, bool interrupt);
 
 private:
-  typedef int (__stdcall *BoyCtrlInitialize)(const wchar_t* pathName);
+  typedef int (__stdcall *BoyCtrlInitialize)(const wchar_t *logPath);
   typedef void (__stdcall *BoyCtrlUninitialize)();
   typedef bool (__stdcall *BoyCtrlIsReaderRunning)();
-  typedef int (__stdcall *BoyCtrlSpeak)(const wchar_t* text, bool withSlave, bool append, bool allowBreak, BoyCtrlSpeakCompleteFunc onCompletion);
-  typedef int (__stdcall *BoyCtrlStopSpeaking)(bool withSlave);
-
+  typedef int (__stdcall *BoyCtrlSpeak)(const wchar_t *text, bool append, BoyCtrlSpeakCompleteFunc onCompletion);
+  typedef int (__stdcall *BoyCtrlStopSpeaking)();
 
 private:
   HINSTANCE controller;
+  bool initialized;
   BoyCtrlInitialize BoyInit;
   BoyCtrlUninitialize BoyUninit;
   BoyCtrlIsReaderRunning BoyIsRunning;
