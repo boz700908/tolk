@@ -11,9 +11,10 @@
 
 #include "ScreenReaderDriverBOY.h"
 
-// Global variable to store the reason value
-//Reason: Reason for callback, 1=speaking completed, 2=Interrupted by new speaking, 3=Interrupted by stopped call
-static int g_speakCompleteReason = -1; // -1 indicates no speech activity
+// Global variable to store the reason value.
+// Reason: 0=no speech activity, -1=speaking, 1=speaking completed,
+// 2=interrupted by new speaking, 3=interrupted by stopped call.
+static int g_speakCompleteReason = 0;
 
 // Callback function to be called when speaking is complete
 void __stdcall SpeakCompleteCallback(int reason) {
@@ -23,46 +24,76 @@ void __stdcall SpeakCompleteCallback(int reason) {
 ScreenReaderDriverBOY::ScreenReaderDriverBOY() :
   ScreenReaderDriver(L"BoyPCReader", true, false),
   #ifdef _WIN64
-  controller(LoadLibrary(L"BoyCtrl-x64.dll")),
+  controller(LoadLibrary(L"byctrl-x64.dll")),
   #else
-  controller(LoadLibrary(L"BoyCtrl.dll")),
+  controller(LoadLibrary(L"byctrl.dll")),
   #endif
+  initialized(false),
   BoySpeak(NULL),
   BoyStopSpeak(NULL),
   BoyInit(NULL),
   BoyUninit(NULL),
   BoyIsRunning(NULL)
 {
-  if (controller) {
-    BoyInit = (BoyCtrlInitialize)GetProcAddress(controller, "BoyCtrlInitialize");
-    BoyUninit = (BoyCtrlUninitialize)GetProcAddress(controller, "BoyCtrlUninitialize");
-    BoyIsRunning = (BoyCtrlIsReaderRunning)GetProcAddress(controller, "BoyCtrlIsReaderRunning");
-    BoySpeak = (BoyCtrlSpeak)GetProcAddress(controller, "BoyCtrlSpeak");
-    BoyStopSpeak = (BoyCtrlStopSpeaking)GetProcAddress(controller, "BoyCtrlStopSpeaking");
-	BoyInit(NULL);
+  if (!controller) return;
+
+  BoyInit = (BoyCtrlInitialize)GetProcAddress(controller, "BoyCtrlInitialize");
+  BoyUninit = (BoyCtrlUninitialize)GetProcAddress(controller, "BoyCtrlUninitialize");
+  BoyIsRunning = (BoyCtrlIsReaderRunning)GetProcAddress(controller, "BoyCtrlIsReaderRunning");
+  BoySpeak = (BoyCtrlSpeak)GetProcAddress(controller, "BoyCtrlSpeak");
+  BoyStopSpeak = (BoyCtrlStopSpeaking)GetProcAddress(controller, "BoyCtrlStopSpeaking");
+
+  if (!BoyInit || !BoyUninit || !BoyIsRunning || !BoySpeak || !BoyStopSpeak) {
+    FreeLibrary(controller);
+    controller = NULL;
+    BoyInit = NULL;
+    BoyUninit = NULL;
+    BoyIsRunning = NULL;
+    BoySpeak = NULL;
+    BoyStopSpeak = NULL;
+    return;
   }
+
+  if (BoyInit(NULL) != 0) {
+    FreeLibrary(controller);
+    controller = NULL;
+    BoyInit = NULL;
+    BoyUninit = NULL;
+    BoyIsRunning = NULL;
+    BoySpeak = NULL;
+    BoyStopSpeak = NULL;
+    return;
+  }
+
+  initialized = true;
 }
 
 ScreenReaderDriverBOY::~ScreenReaderDriverBOY() {
+  if (initialized && BoyUninit) {
+    BoyUninit();
+    initialized = false;
+  }
   if (controller) {
-BoyUninit();
-FreeLibrary(controller);
-}
+    FreeLibrary(controller);
+    controller = NULL;
+  }
 }
 
 bool ScreenReaderDriverBOY::Speak(const wchar_t *str, bool interrupt) {
-  g_speakCompleteReason = -1; // Reset the reason to indicate speaking has started
-  if (BoySpeak) return (BoySpeak(str, true, !interrupt, true, SpeakCompleteCallback) == 0);
+  if (!initialized || !BoySpeak) return false;
+  g_speakCompleteReason = -1;
+  if (BoySpeak(str, !interrupt, SpeakCompleteCallback) == 0) return true;
+  g_speakCompleteReason = 0;
   return false;
 }
 
 bool ScreenReaderDriverBOY::Braille(const wchar_t *str) {
+  (void)str;
   return false;
 }
 
 bool ScreenReaderDriverBOY::Silence() {
-  if (BoyStopSpeak) {
-    BoyStopSpeak(true);
+  if (initialized && BoyStopSpeak && BoyStopSpeak() == 0) {
     g_speakCompleteReason = 3;
     return true;
   }
@@ -70,11 +101,11 @@ bool ScreenReaderDriverBOY::Silence() {
 }
 
 bool ScreenReaderDriverBOY::IsSpeaking() {
-  return (g_speakCompleteReason == -1);
+  return (initialized && g_speakCompleteReason == -1);
 }
 
 bool ScreenReaderDriverBOY::IsActive() {
-  if (BoyIsRunning) return BoyIsRunning();
+  if (initialized && BoyIsRunning) return BoyIsRunning();
   return false;
 }
 
