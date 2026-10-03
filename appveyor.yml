@@ -3,11 +3,11 @@ version: 1.0.{build}
 image: Visual Studio 2022
 
 # AppVeyor VS 2022 image has: CMake, MSBuild, Chocolatey
-# Missing tools (Pandoc, .NET SDK, Java, Ninja) are installed by build.bat
+# Missing tools (e.g. Pandoc) are installed by build.bat --bootstrap
 # --clean ensures no stale CMake cache from previous builds
 
 build_script:
-  - cmd: build.bat --clean
+  - cmd: build.bat --clean --bootstrap
 
 # Build artifacts — per-architecture + per-config (same granularity as GitHub Actions)
 artifacts:

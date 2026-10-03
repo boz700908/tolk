@@ -1,0 +1,34 @@
+# Build output (created by build.bat / CMake)
+/build/
+/build-x86/
+/build-x64/
+/build-arm64/
+/dist/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+install_manifest.txt
+*.vcxproj
+*.vcxproj.filters
+*.sln
+
+# .NET
+src/dotnet/obj/
+src/dotnet/bin/
+*.user
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Debug log written by Debug builds
+Tolk_Debug.log
+
+# IDE / OS
+.vs/
+*.suo
+Thumbs.db
+Desktop.ini

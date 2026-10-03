@@ -20,7 +20,7 @@ public:
 public:
   bool Speak(const wchar_t *str, bool interrupt) override;
   bool Braille(const wchar_t *str) override;
-  bool IsSpeaking() override { return false; }
+  bool IsSpeaking() override;
   bool Silence() override;
   bool IsActive() override;
 private:
@@ -28,6 +28,8 @@ private:
   typedef error_status_t (__stdcall *NVDAController_brailleMessage)(const wchar_t *);
   typedef error_status_t (__stdcall *NVDAController_cancelSpeech)();
   typedef error_status_t (__stdcall *NVDAController_testIfRunning)();
+  // NVDA controller client API 3.0 (NVDA 2026.3+). Absent from older clients.
+  typedef error_status_t (__stdcall *NVDAController_isSpeaking)(boolean *);
 
 private:
   HINSTANCE controller;
@@ -35,6 +37,7 @@ private:
   NVDAController_brailleMessage nvdaController_brailleMessage;
   NVDAController_cancelSpeech nvdaController_cancelSpeech;
   NVDAController_testIfRunning nvdaController_testIfRunning;
+  NVDAController_isSpeaking nvdaController_isSpeaking;
 };
 
 #endif // _SCREEN_READER_DRIVER_NVDA_H_

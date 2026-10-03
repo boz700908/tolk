@@ -1,568 +1,493 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: ============================================
-::  Tolk Build Script — Zero-dependency bootstrap
-::  x86 + x64 + ARM64 (Debug + Release)
-::  Usage: build.bat [debug|release] [--clean] [--x86] [--x64] [--arm64]
-::  --x86/--x64/--arm64 : build only the specified architecture(s)
-::    (omit all to build all three architectures)
-::  Works on a completely clean Windows machine.
-:: ============================================
+:: ============================================================
+::  Tolk build script
+::  Builds Tolk.dll and the language wrappers for x86, x64 and
+::  ARM64, in Debug and/or Release configuration.
+::
+::  Usage:
+::    build.bat [debug|release|both] [--x86] [--x64] [--arm64]
+::              [--clean] [--ci] [--no-bootstrap] [--bootstrap] [--help]
+::
+::    debug|release|both   configuration to build (default: both)
+::    --x86/--x64/--arm64  limit the build to the given architecture(s)
+::    --clean              delete build-*/ and dist/ before building
+::    --ci                 force non-interactive CI mode (never installs)
+::    --no-bootstrap       never install missing build tools
+::    --bootstrap          install missing tools even in CI mode
+::    --help               show this help
+::
+::  On CI (GITHUB_ACTIONS, APPVEYOR, TF_BUILD, BUILD_BUILDID, CI=true)
+::  the script runs in CI mode automatically and always builds clean.
+::  On a clean Windows machine it installs missing build tools through
+::  Chocolatey, which requires Administrator privileges.
+::
+::  Exit code: 0 if every requested build succeeded, 1 otherwise.
+:: ============================================================
 
-:: ---------- Parse arguments ----------
-set BUILD_CONFIG=Release
-set DO_CLEAN=0
-set BUILD_X86=0
-set BUILD_X64=0
-set BUILD_ARM64=0
-set ARCH_SPECIFIED=0
+:: ---------- Defaults ----------
+set "CONFIG=Both"
+set "DO_CLEAN=0"
+set "FORCE_CI=0"
+set "NO_BOOTSTRAP=0"
+set "FORCE_BOOTSTRAP=0"
+set "BUILD_X86=0"
+set "BUILD_X64=0"
+set "BUILD_ARM64=0"
+set "ARM64_REQ=0"
+set "ARCH_SPECIFIED=0"
+set "FAIL_COUNT=0"
+set "OK_COUNT=0"
+set "ASM_FAIL=0"
+
+set "SCRIPT_DIR=%~dp0"
+cd /d "%SCRIPT_DIR%"
+
+call :PARSE_ARGS %*
+set "PA=!errorlevel!"
+if "!PA!"=="3" exit /b 0
+if not "!PA!"=="0" exit /b 1
+
+call :PREPARE_ENV
+if errorlevel 1 exit /b 1
+
+call :BUILD_ALL
+set "RC=!errorlevel!"
+
+call :ASSEMBLE
+if "!RC!"=="0" set "RC=!errorlevel!"
+
+call :SUMMARY
+exit /b !RC!
+
+:: ============================================================
+:: Argument parsing
+:: ============================================================
 :PARSE_ARGS
-if "%~1"=="" goto :START
-if /i "%~1"=="debug"   set BUILD_CONFIG=Debug
-if /i "%~1"=="release" set BUILD_CONFIG=Release
-if /i "%~1"=="--clean" set DO_CLEAN=1
-if /i "%~1"=="--x86"   set ARCH_SPECIFIED=1 & set BUILD_X86=1
-if /i "%~1"=="--x64"   set ARCH_SPECIFIED=1 & set BUILD_X64=1
-if /i "%~1"=="--arm64" set ARCH_SPECIFIED=1 & set BUILD_ARM64=1
+if "%~1"=="" exit /b 0
+set "ARG=%~1"
+set "KNOWN=0"
+if /i "!ARG!"=="debug"    (set "CONFIG=Debug" & set "KNOWN=1")
+if /i "!ARG!"=="release"  (set "CONFIG=Release" & set "KNOWN=1")
+if /i "!ARG!"=="both"     (set "CONFIG=Both" & set "KNOWN=1")
+if /i "!ARG!"=="--debug"   (set "CONFIG=Debug" & set "KNOWN=1")
+if /i "!ARG!"=="--release" (set "CONFIG=Release" & set "KNOWN=1")
+if /i "!ARG!"=="--both"    (set "CONFIG=Both" & set "KNOWN=1")
+if /i "!ARG!"=="--x86"    (set "ARCH_SPECIFIED=1" & set "BUILD_X86=1" & set "KNOWN=1")
+if /i "!ARG!"=="--x64"    (set "ARCH_SPECIFIED=1" & set "BUILD_X64=1" & set "KNOWN=1")
+if /i "!ARG!"=="--arm64"  (set "ARCH_SPECIFIED=1" & set "BUILD_ARM64=1" & set "ARM64_REQ=1" & set "KNOWN=1")
+if /i "!ARG!"=="--clean"  (set "DO_CLEAN=1" & set "KNOWN=1")
+if /i "!ARG!"=="--ci"     (set "FORCE_CI=1" & set "KNOWN=1")
+if /i "!ARG!"=="--no-bootstrap" (set "NO_BOOTSTRAP=1" & set "KNOWN=1")
+if /i "!ARG!"=="--bootstrap"    (set "FORCE_BOOTSTRAP=1" & set "KNOWN=1")
+if /i "!ARG!"=="--help" (call :USAGE & exit /b 3)
+if /i "!ARG!"=="-h"     (call :USAGE & exit /b 3)
+if "!KNOWN!"=="0" echo WARNING: ignoring unknown argument "!ARG!"
 shift
 goto :PARSE_ARGS
 
-:START
-:: Detect CI environment
-set IS_CI=0
-if defined CI             set IS_CI=1
-if defined APPVEYOR       set IS_CI=1
-if defined GITHUB_ACTIONS set IS_CI=1
-:: CI always does a clean build
-if %IS_CI%==1 set DO_CLEAN=1
+:USAGE
+echo Tolk build script
+echo.
+echo Usage: build.bat [debug^|release^|both] [--x86] [--x64] [--arm64]
+echo                  [--clean] [--ci] [--no-bootstrap] [--help]
+echo.
+echo   debug^|release^|both   configuration to build (default: both)
+echo   --x86/--x64/--arm64  limit the build to the given architecture^(s^)
+echo   --clean              delete build-*/ and dist/ before building
+echo   --ci                 force non-interactive CI mode
+echo   --no-bootstrap       never install missing build tools
+echo   --bootstrap          install missing tools even in CI mode
+echo   --help               show this help
+exit /b 0
 
-echo ============================================
-echo  Tolk Build Script
-echo  Config: %BUILD_CONFIG%  CI: %IS_CI%  Clean: %DO_CLEAN%
-echo ============================================
+:: ============================================================
+:: Environment preparation
+:: ============================================================
+:PREPARE_ENV
+:: Detect CI
+set "IS_CI=0"
+if defined GITHUB_ACTIONS set "IS_CI=1"
+if defined APPVEYOR set "IS_CI=1"
+if defined TF_BUILD set "IS_CI=1"
+if defined BUILD_BUILDID set "IS_CI=1"
+if defined CI if /i not "%CI%"=="false" set "IS_CI=1"
+if "%FORCE_CI%"=="1" set "IS_CI=1"
+if "%IS_CI%"=="1" set "DO_CLEAN=1"
 
-:: ---------- Admin check (skip on CI — GitHub Actions has no admin) ----------
-if %IS_CI%==1 goto :SKIP_ADMIN
-net session >nul 2>&1
-if %errorlevel% neq 0 (
-    echo.
-    echo ERROR: This script requires Administrator privileges.
-    echo Chocolatey and Visual Studio Build Tools need admin rights.
-    echo Please right-click the Command Prompt and select "Run as administrator".
-    echo.
+:: Resolve configuration and architecture lists
+if /i "%CONFIG%"=="both" (set "CONFIG_LIST=Debug Release") else (set "CONFIG_LIST=%CONFIG%")
+if "%ARCH_SPECIFIED%"=="0" (
+  set "BUILD_X86=1"
+  set "BUILD_X64=1"
+  set "BUILD_ARM64=1"
+)
+
+set "ARCH_LIST="
+if "!BUILD_X86!"=="1"   set "ARCH_LIST=!ARCH_LIST! x86"
+if "!BUILD_X64!"=="1"   set "ARCH_LIST=!ARCH_LIST! x64"
+if "!BUILD_ARM64!"=="1" set "ARCH_LIST=!ARCH_LIST! arm64"
+
+echo ============================================================
+echo  Tolk build
+echo  Configs: !CONFIG_LIST!   Archs:!ARCH_LIST!   CI: !IS_CI!   Clean: !DO_CLEAN!
+echo ============================================================
+
+if "%DO_CLEAN%"=="1" (
+  echo [Clean] Removing previous build output...
+  for %%D in (build-x86 build-x64 build-arm64 dist) do (
+    if exist "%%D" rmdir /s /q "%%D"
+  )
+)
+
+:: Locate toolchain
+call :FIND_CMAKE
+call :FIND_VS
+
+:: ARM64 is optional: skip it when the toolchain is not installed
+if "!BUILD_ARM64!"=="1" if "!VS_FOUND!"=="1" if not "!VS_ARM64!"=="1" (
+  if "!ARM64_REQ!"=="1" (
+    echo ERROR: ARM64 was requested but the ARM64 C++ build tools are not installed.
     exit /b 1
-)
-echo [Admin] Running with administrator privileges.
-:SKIP_ADMIN
-
-:: ---------- Clean build directories ----------
-if %DO_CLEAN%==1 (
-    echo [Clean] Removing stale build directories...
-    for %%D in (build-x86 build-x64 build-arm64 dist) do (
-        if exist "%%D" (
-            echo   Removing %%D\
-            rmdir /s /q "%%D" 2>nul
-        )
-    )
-    echo [Clean] Done.
+  )
+  echo WARNING: ARM64 C++ build tools are not installed, skipping ARM64.
+  echo          Install "MSVC v143 - VS 2022 C++ ARM64 build tools" to enable it.
+  set "BUILD_ARM64=0"
 )
 
-:: ============================================
-:: Helper: Safe environment refresh
-:: ============================================
-:SAFE_REFRESH_ENV
-for %%P in (
-    "%ChocolateyInstall%\bin\RefreshEnv.cmd"
-    "%ProgramData%\chocolatey\bin\RefreshEnv.cmd"
-    "%ALLUSERSPROFILE%\chocolatey\bin\RefreshEnv.cmd"
-) do (
-    if exist %%P (
-        call %%P >nul 2>&1
-        exit /b 0
+:: Bootstrap missing required tools (local builds only)
+set "NEED_BOOTSTRAP=0"
+if not defined CMAKE_EXE set "NEED_BOOTSTRAP=1"
+if not "!VS_FOUND!"=="1" set "NEED_BOOTSTRAP=1"
+set "ALLOW_BOOTSTRAP=1"
+if "%NO_BOOTSTRAP%"=="1" set "ALLOW_BOOTSTRAP=0"
+if "%IS_CI%"=="1" if not "%FORCE_BOOTSTRAP%"=="1" set "ALLOW_BOOTSTRAP=0"
+if "%NEED_BOOTSTRAP%"=="1" (
+  if "%ALLOW_BOOTSTRAP%"=="0" (
+    echo ERROR: required build tools ^(CMake / Visual Studio C++^) are missing.
+    if "%IS_CI%"=="1" (
+      echo        The CI image is expected to provide CMake and the Visual Studio C++ build tools.
+    ) else (
+      echo        Run without --no-bootstrap to install them.
     )
+    exit /b 1
+  )
+  call :REQUIRE_ADMIN
+  if errorlevel 1 exit /b 1
+  call :BOOTSTRAP
+)
+
+if not defined CMAKE_EXE (
+  echo ERROR: CMake could not be found or installed.
+  exit /b 1
+)
+if not "!VS_FOUND!"=="1" (
+  echo ERROR: Visual Studio C++ build tools could not be found or installed.
+  exit /b 1
+)
+
+:: Configure COM-free optional tools (only used for wrappers/docs)
+set "DOTNET_EXE="
+for /f "delims=" %%i in ('where dotnet 2^>nul') do if not defined DOTNET_EXE set "DOTNET_EXE=%%i"
+if defined DOTNET_EXE if exist "src\dotnet\TolkDotNet.csproj" (
+  echo [Restore] dotnet restore src\dotnet\TolkDotNet.csproj
+  "%DOTNET_EXE%" restore "src\dotnet\TolkDotNet.csproj" >nul
+  if errorlevel 1 echo WARNING: dotnet restore failed, the .NET wrapper may not build.
+)
+
+echo [Tools] CMAKE=!CMAKE_EXE!
+exit /b 0
+
+:: ============================================================
+:: Build every requested architecture/configuration combination
+:: ============================================================
+:BUILD_ALL
+for %%C in (%CONFIG_LIST%) do (
+  if "!BUILD_X86!"=="1"   call :BUILD_ONE x86 Win32 %%C
+  if "!BUILD_X64!"=="1"   call :BUILD_ONE x64 x64 %%C
+  if "!BUILD_ARM64!"=="1" call :BUILD_ONE arm64 ARM64 %%C
+)
+if !FAIL_COUNT! gtr 0 exit /b 1
+exit /b 0
+
+:BUILD_ONE
+set "ARCH=%~1"
+set "CM_ARCH=%~2"
+set "CFG=%~3"
+set "BDIR=build-%~1"
+echo.
+echo ============================================================
+echo  Building %ARCH% %CFG%
+echo ============================================================
+"%CMAKE_EXE%" -B "%BDIR%" -A "%CM_ARCH%"
+if errorlevel 1 (
+  echo ERROR: CMake configuration failed for %ARCH% %CFG%
+  set /a FAIL_COUNT+=1
+  exit /b 1
+)
+"%CMAKE_EXE%" --build "%BDIR%" --config "%CFG%" --parallel
+if errorlevel 1 (
+  echo ERROR: compilation failed for %ARCH% %CFG%
+  set /a FAIL_COUNT+=1
+  exit /b 1
+)
+set /a OK_COUNT+=1
+exit /b 0
+
+:: ============================================================
+:: Assemble the dist/ directory
+:: ============================================================
+:ASSEMBLE
+if not exist "dist" mkdir "dist"
+for %%C in (%CONFIG_LIST%) do (
+  if "!BUILD_X86!"=="1"   call :COPY_ARCH x86 %%C
+  if "!BUILD_X64!"=="1"   call :COPY_ARCH x64 %%C
+  if "!BUILD_ARM64!"=="1" call :COPY_ARCH arm64 %%C
+)
+call :COPY_SHARED
+call :COPY_LICENSES
+call :WRITE_DEBUG_FEATURES
+if "!ASM_FAIL!"=="1" exit /b 1
+exit /b 0
+
+:COPY_ARCH
+set "ARCH=%~1"
+set "CFG=%~2"
+set "SRC=build-%ARCH%\dist\%ARCH%-%CFG%"
+set "DST=dist\%ARCH%\%CFG%"
+if not exist "%SRC%" (
+  echo WARNING: no build output found for %ARCH% %CFG%
+  set "ASM_FAIL=1"
+  exit /b 1
+)
+if not exist "%DST%" mkdir "%DST%"
+xcopy /E /I /Y /Q "%SRC%\*" "%DST%\" >nul
+if exist "build-%ARCH%\src\%CFG%\Tolk.pdb" copy /Y "build-%ARCH%\src\%CFG%\Tolk.pdb" "%DST%\" >nul
+if exist "build-%ARCH%\src\%CFG%\Tolk.exp" copy /Y "build-%ARCH%\src\%CFG%\Tolk.exp" "%DST%\" >nul
+if not exist "%DST%\Tolk.dll" (
+  echo WARNING: Tolk.dll is missing from %DST%
+  set "ASM_FAIL=1"
+  exit /b 1
+)
+echo   [dist] %DST%
+exit /b 0
+
+:: Language wrappers are identical for every architecture, so collect
+:: them once under dist\wrappers and drop the per-architecture copies.
+:COPY_SHARED
+set "WSRC="
+for %%C in (Release Debug) do (
+  for %%A in (x64 x86 arm64) do (
+    if not defined WSRC if exist "dist\%%A\%%C\python\Tolk.py" set "WSRC=dist\%%A\%%C"
+  )
+)
+if defined WSRC (
+  for %%W in (python autoit purebasic) do (
+    if exist "!WSRC!\%%W" (
+      if not exist "dist\wrappers\%%W" mkdir "dist\wrappers\%%W"
+      xcopy /E /I /Y /Q "!WSRC!\%%W\*" "dist\wrappers\%%W\" >nul
+    )
+  )
+  for %%A in (x86 x64 arm64) do (
+    for %%D in (Debug Release) do (
+      for %%W in (python autoit purebasic) do (
+        if exist "dist\%%A\%%D\%%W" rmdir /s /q "dist\%%A\%%D\%%W"
+      )
+    )
+  )
+)
+
+:: .NET wrapper
+set "DLL="
+for %%C in (Release Debug) do (
+  for %%A in (x64 x86 arm64) do (
+    if not defined DLL if exist "build-%%A\src\dotnet\publish\TolkDotNet.dll" set "DLL=build-%%A\src\dotnet\publish\TolkDotNet.dll"
+  )
+)
+if defined DLL (
+  if not exist "dist\wrappers\dotnet" mkdir "dist\wrappers\dotnet"
+  if not exist "dist\dotnet" mkdir "dist\dotnet"
+  copy /Y "!DLL!" "dist\wrappers\dotnet\TolkDotNet.dll" >nul
+  copy /Y "!DLL!" "dist\dotnet\TolkDotNet.dll" >nul
+  copy /Y "!DLL!" "dist\TolkDotNet.dll" >nul
+)
+
+:: Java wrapper
+set "JAR="
+for %%C in (Release Debug) do (
+  for %%A in (x64 x86 arm64) do (
+    if not defined JAR if exist "build-%%A\src\java\Tolk.jar" set "JAR=build-%%A\src\java\Tolk.jar"
+  )
+)
+if defined JAR (
+  if not exist "dist\wrappers\java" mkdir "dist\wrappers\java"
+  if not exist "dist\java" mkdir "dist\java"
+  copy /Y "!JAR!" "dist\wrappers\java\Tolk.jar" >nul
+  copy /Y "!JAR!" "dist\java\Tolk.jar" >nul
+  copy /Y "!JAR!" "dist\Tolk.jar" >nul
+)
+
+:: Documentation
+set "HTML="
+for %%C in (Release Debug) do (
+  for %%A in (x64 x86 arm64) do (
+    if not defined HTML if exist "build-%%A\docs\README.html" set "HTML=build-%%A\docs\README.html"
+  )
+)
+if defined HTML (
+  if not exist "dist\docs" mkdir "dist\docs"
+  copy /Y "!HTML!" "dist\docs\README.html" >nul
+  copy /Y "!HTML!" "dist\README.html" >nul
 )
 exit /b 0
 
-:: ============================================
-:: Helper: Ensure choco is on PATH. Called after
-:: Chocolatey install or when choco is not found.
-:: ============================================
-:ENSURE_CHOCO_PATH
-for %%P in (
-    "%ChocolateyInstall%\bin\choco.exe"
-    "%ProgramData%\chocolatey\bin\choco.exe"
-    "%ALLUSERSPROFILE%\chocolatey\bin\choco.exe"
-    "C:\ProgramData\chocolatey\bin\choco.exe"
-) do (
-    if exist %%P (
-        for %%D in ("%%~dpP.") do set "PATH=!PATH!;%%~dpP"
-        exit /b 0
-    )
-)
-exit /b 1
+:COPY_LICENSES
+if exist "LICENSE.txt"     copy /Y "LICENSE.txt"     "dist\LICENSE.txt" >nul
+if exist "LICENSE-NVDA.txt" copy /Y "LICENSE-NVDA.txt" "dist\LICENSE-NVDA.txt" >nul
+exit /b 0
 
-:: ============================================
-:: Helper: Chocolatey install with retry
-:: VS packages get verbose output; others are quiet.
-:: ============================================
-:CHOCO_INSTALL
-setlocal
-set "IS_VS=%~1"
-set /a TRY=0
-shift
-:CHOCO_RETRY
-if "%IS_VS%"=="--vs" (
-    echo   ^(this may take 10-30 minutes — downloading Visual Studio...^)
-    shift
-    choco install %* -y --no-progress --allow-downgrade
+:WRITE_DEBUG_FEATURES
+(
+  echo Debug Build Features:
+  echo =====================
+  echo.
+  echo 1. Tolk_Debug.log written to the calling process working directory
+  echo 2. ERR ^(red^) and WRN ^(yellow^) messages printed to the console
+  echo 3. All logs sent to Windows OutputDebugString ^(view with DebugView^)
+  echo 4. Full PDB debug symbols included
+  echo 5. Runtime error checking enabled ^(RTC1 + RTCsu^)
+  echo 6. No optimization for easier debugging
+  echo.
+  echo Log file location: Tolk_Debug.log ^(in your application working directory^)
+) > "dist\DEBUG_FEATURES.txt"
+exit /b 0
+
+:: ============================================================
+:: Summary
+:: ============================================================
+:SUMMARY
+echo.
+echo ============================================================
+echo  Build finished: !OK_COUNT! succeeded, !FAIL_COUNT! failed
+echo  Output directory: %SCRIPT_DIR%dist
+echo ============================================================
+if !FAIL_COUNT! gtr 0 (
+  echo Result: FAILED
 ) else (
-    choco install %* -y --no-progress --limit-output --allow-downgrade
+  echo Result: SUCCESS
 )
-set RC=%errorlevel%
-:: 3010 = reboot required (success for VS installs)
-if %RC% equ 3010 set RC=0
-if %RC% equ 0 (
-    call :SAFE_REFRESH_ENV
-    endlocal & exit /b 0
-)
-set /a TRY+=1
-if %TRY% lss 3 (
-    ping -n 3 127.0.0.1 >nul
-    goto :CHOCO_RETRY
-)
-endlocal & exit /b %RC%
+exit /b 0
 
-:: ============================================
-:: Helper: Locate MSBuild using vswhere or fallback
-:: ============================================
-:LOCATE_MSBUILD
-setlocal
-:: Try vswhere first (installed with VS Build Tools)
+:: ============================================================
+:: Tool discovery / bootstrap helpers
+:: ============================================================
+:FIND_CMAKE
+set "CMAKE_EXE="
+for /f "delims=" %%i in ('where cmake 2^>nul') do if not defined CMAKE_EXE set "CMAKE_EXE=%%i"
+:: VS ships CMake under Common7\IDE\CommonExtensions\Microsoft\CMake.
+:: Ask vswhere for the installation path (no embedded quotes in the
+:: command, which cmd's "for /f" cannot parse) and append the rest.
+if not defined CMAKE_EXE (
+  set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+  if exist "!VSWHERE!" (
+    set "VSINSTALL="
+    for /f "usebackq delims=" %%p in (`"!VSWHERE!" -latest -products * -property installationPath`) do set "VSINSTALL=%%p"
+    if defined VSINSTALL if exist "!VSINSTALL!\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" (
+      set "CMAKE_EXE=!VSINSTALL!\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+    )
+  )
+)
+if not defined CMAKE_EXE for %%P in (
+  "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+  "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+  "C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+  "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+) do if not defined CMAKE_EXE if exist %%P set "CMAKE_EXE=%%~P"
+if defined CMAKE_EXE for %%D in ("!CMAKE_EXE!") do set "PATH=%%~dpD;!PATH!"
+exit /b 0
+
+:FIND_VS
+set "VS_FOUND=0"
+set "VS_ARM64=0"
+set "VS_PATH="
+set "VS_ARM64_PATH="
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
-if exist "%VSWHERE%" (
-    for /f "usebackq tokens=*" %%p in (`"%VSWHERE%" -latest -products * -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe"`) do (
-        set "MSBUILD_PATH=%%p"
-        goto :MSBUILD_FOUND
-    )
+if not exist "!VSWHERE!" exit /b 0
+for /f "usebackq delims=" %%p in (`"!VSWHERE!" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2^>nul`) do set "VS_PATH=%%p"
+if defined VS_PATH set "VS_FOUND=1"
+for /f "usebackq delims=" %%p in (`"!VSWHERE!" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64 -property installationPath 2^>nul`) do set "VS_ARM64_PATH=%%p"
+if defined VS_ARM64_PATH set "VS_ARM64=1"
+exit /b 0
+
+:REQUIRE_ADMIN
+net session >nul 2>&1
+if errorlevel 1 (
+  echo.
+  echo ERROR: Administrator privileges are required to install the missing build tools.
+  echo        Right-click the command prompt and choose "Run as administrator",
+  echo        or install CMake and the Visual Studio C++ build tools manually.
+  echo.
+  exit /b 1
 )
-:: Fallback: search known paths
-for %%P in (
-    "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
-    "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe"
-    "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe"
-    "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
-) do (
-    if exist %%P (
-        set "MSBUILD_PATH=%%P"
-        goto :MSBUILD_FOUND
-    )
+exit /b 0
+
+:BOOTSTRAP
+echo [Bootstrap] Installing missing build tools through Chocolatey...
+call :ENSURE_CHOCO
+if errorlevel 1 exit /b 1
+if not defined CMAKE_EXE call :CHOCO_INSTALL cmake
+if not "!VS_FOUND!"=="1" (
+  call :CHOCO_INSTALL visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.VC.Tools.ARM64 --includeRecommended --quiet"
 )
-endlocal & exit /b 1
+:: Optional tools: only used for the language wrappers and documentation.
+call :ENSURE_OPTIONAL_TOOL dotnet dotnet-sdk
+call :ENSURE_OPTIONAL_TOOL pandoc pandoc
+call :ENSURE_OPTIONAL_TOOL java openjdk17
+call :FIND_CMAKE
+call :FIND_VS
+exit /b 0
 
-:MSBUILD_FOUND
-for %%P in ("%MSBUILD_PATH%\..") do set "MSBUILD_DIR=%%~dpP"
-set "PATH=%MSBUILD_DIR%;%PATH%"
-endlocal & set "PATH=%MSBUILD_DIR%;%PATH%" & exit /b 0
+:ENSURE_OPTIONAL_TOOL
+where %~1 >nul 2>&1 && exit /b 0
+echo [Bootstrap] Installing optional tool: %~2
+call :CHOCO_INSTALL %~2
+exit /b 0
 
-:: ============================================
-:: Helper: Check tool version against minimum
-:: ============================================
-:CHECK_TOOL
-setlocal
-set "TOOL_NAME=%~1"
-set "MIN_VERSION=%~2"
-set "VERSION_ARG=%~3"
-set "CHOCO_PKG=%~4"
-set "IS_REQUIRED=%~5"
-set "CI_SKIP=%~6"
-if "%TOOL_NAME%"=="" endlocal & exit /b 0
-
-:: On GitHub Actions, skip all tool installation (tools provided by setup actions)
-if defined GITHUB_ACTIONS (
-    echo [%STEP%/7] %TOOL_NAME%: using GitHub Actions-provided tool
-    endlocal & exit /b 0
+:REFRESH_ENV
+if exist "%ProgramData%\chocolatey\bin\RefreshEnv.cmd" (
+  call "%ProgramData%\chocolatey\bin\RefreshEnv.cmd" >nul 2>&1
+  exit /b 0
 )
+for /f "usebackq tokens=2,*" %%a in (`reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul`) do set "SYSPATH=%%b"
+for /f "usebackq tokens=2,*" %%a in (`reg query "HKCU\Environment" /v Path 2^>nul`) do set "USERPATH=%%b"
+if defined SYSPATH set "PATH=!SYSPATH!"
+if defined USERPATH set "PATH=!PATH!;!USERPATH!"
+exit /b 0
 
-:: On CI, skip VS/MSBuild installation (VS 2022 is pre-installed)
-if %IS_CI%==1 if "%CI_SKIP%"=="1" (
-    echo [%STEP%/7] %TOOL_NAME%: using pre-installed Visual Studio 2022
-    endlocal & exit /b 0
+:ENSURE_CHOCO
+where choco >nul 2>&1 && exit /b 0
+if exist "%ProgramData%\chocolatey\bin\choco.exe" (
+  set "PATH=%ProgramData%\chocolatey\bin;!PATH!"
+  exit /b 0
 )
-
-:: Check if tool exists
-where "%TOOL_NAME%" >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [%STEP%/7] %TOOL_NAME% not found, installing...
-    if "%CI_SKIP%"=="1" (
-        :: VS install: show progress, it takes a long time
-        call :CHOCO_INSTALL --vs %CHOCO_PKG%
-    ) else (
-        call :CHOCO_INSTALL %CHOCO_PKG%
-    )
-    if !errorlevel! equ 0 (
-        echo [%STEP%/7] %TOOL_NAME% installed.
-        :: For MSBuild: locate it and add to PATH
-        if "%CI_SKIP%"=="1" call :LOCATE_MSBUILD
-    ) else (
-        if "%IS_REQUIRED%"=="1" (
-            echo ERROR: %TOOL_NAME% installation failed.
-            endlocal & exit /b 1
-        ) else (
-            echo WARNING: %TOOL_NAME% installation failed, skipping.
-        )
-    )
-    endlocal & exit /b 0
+echo [Bootstrap] Installing Chocolatey...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
+if errorlevel 1 (
+  echo ERROR: failed to install Chocolatey.
+  exit /b 1
 )
+if exist "%ProgramData%\chocolatey\bin" set "PATH=%ProgramData%\chocolatey\bin;!PATH!"
+exit /b 0
 
-:: For MSBuild on a clean machine (not CI): ensure it's on PATH
-if "%CI_SKIP%"=="1" if %IS_CI%==0 call :LOCATE_MSBUILD
-
-:: Check version
-for /f "tokens=*" %%v in ('%TOOL_NAME% %VERSION_ARG% 2^>^&1 ^| findstr /r "[0-9][0-9]*\.[0-9][0-9]*"') do set "DETECTED_VERSION=%%v"
-if "%DETECTED_VERSION%"=="" (
-    echo [%STEP%/7] %TOOL_NAME% found ^(version unknown^).
-    endlocal & exit /b 0
+:CHOCO_INSTALL
+call :ENSURE_CHOCO
+if errorlevel 1 exit /b 1
+echo [Bootstrap] choco install %* -y --no-progress --limit-output
+choco install %* -y --no-progress --limit-output
+if errorlevel 1 (
+  echo ERROR: Chocolatey failed to install: %*
+  exit /b 1
 )
-
-call :VERSION_COMPARE "%DETECTED_VERSION%" "%MIN_VERSION%"
-if %errorlevel% equ 1 (
-    echo [%STEP%/7] %TOOL_NAME% v%DETECTED_VERSION% ^< v%MIN_VERSION%, upgrading...
-    if "%CI_SKIP%"=="1" (
-        call :CHOCO_INSTALL --vs %CHOCO_PKG%
-    ) else (
-        call :CHOCO_INSTALL %CHOCO_PKG%
-    )
-    if !errorlevel! equ 0 (
-        echo [%STEP%/7] %TOOL_NAME% upgraded.
-        if "%CI_SKIP%"=="1" call :LOCATE_MSBUILD
-    ) else (
-        echo WARNING: %TOOL_NAME% upgrade failed, using v%DETECTED_VERSION%.
-    )
-) else (
-    echo [%STEP%/7] %TOOL_NAME% v%DETECTED_VERSION% ^>= v%MIN_VERSION% ^(OK^)
-)
-endlocal & exit /b 0
-
-:: ============================================
-:: Helper: Simple version comparison
-:: Handles "v3.20.0", "3.20", "17.0.6", etc.
-:: ============================================
-:VERSION_COMPARE
-setlocal
-set "V1=%~1"
-set "V2=%~2"
-
-:: Strip leading "v" or "V"
-if /i "%V1:~0,1%"=="v" set "V1=%V1:~1%"
-if /i "%V2:~0,1%"=="v" set "V2=%V2:~1%"
-
-:: Strip leading non-digits (for "Java(TM) SE Runtime Environment 17.0.19" etc.)
-set "CLEAN1="
-for /f "tokens=*" %%a in ('echo !V1! ^| findstr /r "[0-9][0-9]*\.[0-9][0-9]*"') do set "CLEAN1=%%a"
-if not "%CLEAN1%"=="" set "V1=%CLEAN1%"
-
-for /f "tokens=1-3 delims=." %%a in ("%V1%") do set "A1=%%a" & set "A2=%%b" & set "A3=%%c"
-for /f "tokens=1-3 delims=." %%a in ("%V2%") do set "B1=%%a" & set "B2=%%b" & set "B3=%%c"
-:: Strip non-numeric suffix from A3 (e.g. "0+1" -> "0")
-for /f "delims=+-_" %%x in ("%A3%") do set "A3=%%x"
-for /f "delims=+-_" %%x in ("%B3%") do set "B3=%%x"
-if "%A1%"=="" set A1=0
-if "%A2%"=="" set A2=0
-if "%A3%"=="" set A3=0
-if "%B1%"=="" set B1=0
-if "%B2%"=="" set B2=0
-if "%B3%"=="" set B3=0
-if %A1% lss %B1% endlocal & exit /b 1
-if %A1% gtr %B1% endlocal & exit /b 0
-if %A2% lss %B2% endlocal & exit /b 1
-if %A2% gtr %B2% endlocal & exit /b 0
-if %A3% lss %B3% endlocal & exit /b 1
-endlocal & exit /b 0
-
-:: ============================================
-:: MAIN: Preflight — install everything needed
-:: ============================================
-:MAIN
-
-:: Step 1: Chocolatey
-set STEP=1
-call :ENSURE_CHOCO_PATH
-if %errorlevel% neq 0 (
-    echo [1/7] Chocolatey not found, installing...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-        "[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
-    if %errorlevel% neq 0 (
-        echo ERROR: Failed to install Chocolatey. Check internet connection.
-        exit /b 1
-    )
-    call :ENSURE_CHOCO_PATH
-    echo [1/7] Chocolatey installed.
-) else (
-    echo [1/7] Chocolatey available.
-)
-call :SAFE_REFRESH_ENV
-
-:: Step 2: CMake (>= 3.20)
-set STEP=2
-call :CHECK_TOOL "cmake" "3.20" "--version" "cmake" "1" "0"
-
-:: Step 3: MSBuild + VS 2022 Build Tools — skip on CI (pre-installed)
-:: Add ARM64 toolchain for cross-compilation
-set STEP=3
-call :CHECK_TOOL "msbuild" "17.0" "-version" ^
-    "visualstudio2022buildtools --package-parameters \"--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.ARM64 --includeRecommended --quiet\"" ^
-    "1" "1"
-
-:: Step 4: Pandoc (>= 2.18)
-set STEP=4
-call :CHECK_TOOL "pandoc" "2.18" "--version" "pandoc" "1" "0"
-
-:: Step 5: .NET SDK (>= 6.0)
-set STEP=5
-call :CHECK_TOOL "dotnet" "6.0" "--version" "dotnet-sdk" "1" "0"
-where dotnet >nul 2>&1
-if %errorlevel% equ 0 (
-    if exist "src\dotnet\TolkDotNet.csproj" (
-        echo [5/7] Running dotnet restore...
-        dotnet restore "src\dotnet\TolkDotNet.csproj"
-        if !errorlevel! equ 0 (
-            echo [5/7] dotnet restore completed.
-        ) else (
-            echo WARNING: dotnet restore failed, build may use cached packages.
-        )
-    )
-)
-
-:: Step 6: Java (OpenJDK 17) — optional, JAR will be skipped if missing
-set STEP=6
-call :CHECK_TOOL "java" "11" "--version" "openjdk17" "0" "0"
-
-:: Step 7: Ninja (>= 1.10) — optional
-set STEP=7
-call :CHECK_TOOL "ninja" "1.10" "--version" "ninja" "0" "0"
-
-:: Final check: msbuild must be on PATH
-where msbuild >nul 2>&1
-if %errorlevel% neq 0 (
-    call :LOCATE_MSBUILD
-    if %errorlevel% neq 0 (
-        echo.
-        echo ERROR: MSBuild could not be found.
-        echo Visual Studio 2022 Build Tools may not have installed correctly.
-        echo Try running: "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe"
-        exit /b 1
-    )
-)
-
-echo.
-echo ============================================
-echo  [Preflight] All required tools are ready!
-echo  Ready to build Tolk.
-echo ============================================
-echo.
-
-:: ============================================
-:: BUILD
-:: ============================================
-
-:: Verify MSBuild path
-where msbuild >nul 2>&1
-if %errorlevel% neq 0 (
-    for /f "usebackq tokens=*" %%p in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe" 2^>nul`) do (
-        set "MSBUILD_EXE=%%p"
-    )
-    if defined MSBUILD_EXE (
-        for %%D in ("%MSBUILD_EXE%\..") do set "PATH=%%~dpD;!PATH!"
-    )
-)
-
-:: Determine build targets
-:: If no arch flag was specified, build all three architectures
-if %ARCH_SPECIFIED%==0 (
-    set BUILD_X86=1
-    set BUILD_X64=1
-    set BUILD_ARM64=1
-)
-
-:: x86 build
-if %BUILD_X86%==1 (
-    echo ============================================
-    echo  Building x86 (%BUILD_CONFIG%)
-    echo ============================================
-    echo [1/3] Configuring CMake x86...
-    cmake -B build-x86 -A Win32 2>&1
-    if %errorlevel% equ 0 (
-        echo [2/3] Building x86...
-        cmake --build build-x86 --config %BUILD_CONFIG% 2>&1
-        if %errorlevel% equ 0 (
-            echo [3/3] x86 build succeeded.
-        ) else (
-            echo ERROR: x86 build failed.
-            set BUILD_X86=0
-        )
-    ) else (
-        echo ERROR: x86 CMake configuration failed.
-        set BUILD_X86=0
-    )
-)
-
-:: x64 build
-if %BUILD_X64%==1 (
-    echo.
-    echo ============================================
-    echo  Building x64 (%BUILD_CONFIG%)
-    echo ============================================
-    echo [1/3] Configuring CMake x64...
-    cmake -B build-x64 -A x64 2>&1
-    if %errorlevel% equ 0 (
-        echo [2/3] Building x64...
-        cmake --build build-x64 --config %BUILD_CONFIG% 2>&1
-        if %errorlevel% equ 0 (
-            echo [3/3] x64 build succeeded.
-        ) else (
-            echo ERROR: x64 build failed.
-            set BUILD_X64=0
-        )
-    ) else (
-        echo ERROR: x64 CMake configuration failed.
-        set BUILD_X64=0
-    )
-)
-
-:: ARM64 build
-if %BUILD_ARM64%==1 (
-    echo.
-    echo ============================================
-    echo  Building ARM64 (%BUILD_CONFIG%)
-    echo ============================================
-    echo [1/3] Configuring CMake ARM64...
-    cmake -B build-arm64 -A ARM64 2>&1
-    if %errorlevel% equ 0 (
-        echo [2/3] Building ARM64...
-        cmake --build build-arm64 --config %BUILD_CONFIG% 2>&1
-        if %errorlevel% equ 0 (
-            echo [3/3] ARM64 build succeeded.
-        ) else (
-            echo WARNING: ARM64 build failed ^(toolchain may be missing^).
-        )
-    ) else (
-        echo WARNING: ARM64 CMake configuration failed ^(toolchain not available^).
-    )
-)
-
-:: ============================================
-:: ASSEMBLE DISTRIBUTION
-:: ============================================
-echo.
-echo ============================================
-echo  Assembling distribution...
-echo ============================================
-
-if not exist "dist" mkdir dist
-
-:: Copy x86 output
-if %BUILD_X86%==1 (
-    if exist "build-x86\dist\x86-Debug" (
-        xcopy /E /I /Y "build-x86\dist\x86-Debug" "dist\x86\Debug"
-        echo   x86 Debug copied.
-    )
-    if exist "build-x86\dist\x86-Release" (
-        xcopy /E /I /Y "build-x86\dist\x86-Release" "dist\x86\Release"
-        echo   x86 Release copied.
-    )
-)
-
-:: Copy x64 output
-if %BUILD_X64%==1 (
-    if exist "build-x64\dist\x64-Debug" (
-        xcopy /E /I /Y "build-x64\dist\x64-Debug" "dist\x64\Debug"
-        echo   x64 Debug copied.
-    )
-    if exist "build-x64\dist\x64-Release" (
-        xcopy /E /I /Y "build-x64\dist\x64-Release" "dist\x64\Release"
-        echo   x64 Release copied.
-    )
-    if exist "build-x64\src\dotnet\publish\TolkDotNet.dll" (
-        copy /Y "build-x64\src\dotnet\publish\TolkDotNet.dll" "dist\"
-        echo   .NET wrapper copied.
-    )
-    if exist "build-x64\src\java\Tolk.jar" (
-        copy /Y "build-x64\src\java\Tolk.jar" "dist\"
-        echo   Java JAR copied.
-    )
-    if exist "build-x64\docs\README.html" (
-        copy /Y "build-x64\docs\README.html" "dist\"
-        echo   Documentation copied.
-    )
-)
-
-:: Copy ARM64 output
-if %BUILD_ARM64%==1 (
-    if exist "build-arm64\dist\ARM64-Debug" (
-        xcopy /E /I /Y "build-arm64\dist\ARM64-Debug" "dist\arm64\Debug"
-        echo   ARM64 Debug copied.
-    )
-    if exist "build-arm64\dist\ARM64-Release" (
-        xcopy /E /I /Y "build-arm64\dist\ARM64-Release" "dist\arm64\Release"
-        echo   ARM64 Release copied.
-    )
-)
-
-:: Copy license files
-if exist "LICENSE.txt"   copy /Y "LICENSE.txt"   "dist\"
-if exist "LICENSE-NVDA.txt" copy /Y "LICENSE-NVDA.txt" "dist\"
-
-:: Copy source wrappers (architecture-independent)
-for %%W in (Tolk.py Tolk.au3 Tolk.pb) do (
-    if exist "src\python\%%W"   copy /Y "src\python\%%W"   "dist\"
-    if exist "src\autoit\%%W"   copy /Y "src\autoit\%%W"   "dist\"
-    if exist "src\purebasic\%%W" copy /Y "src\purebasic\%%W" "dist\"
-)
-
-echo.
-echo ============================================
-echo  Build complete!
-echo  Output: dist\
-echo ============================================
-
-:: ---------- Verify build results ----------
-set BUILD_FAILED=0
-set BUILD_ANY=0
-
-if %BUILD_X86%==1 (
-    set BUILD_ANY=1
-    if not exist "dist\x86\Debug\Tolk.dll" if not exist "dist\x86\Release\Tolk.dll" (
-        echo WARNING: x86 build marked as success but no DLL found in dist.
-        set BUILD_FAILED=1
-    )
-)
-if %BUILD_X64%==1 (
-    set BUILD_ANY=1
-    if not exist "dist\x64\Debug\Tolk.dll" if not exist "dist\x64\Release\Tolk.dll" (
-        echo WARNING: x64 build marked as success but no DLL found in dist.
-        set BUILD_FAILED=1
-    )
-)
-if %BUILD_ARM64%==1 (
-    set BUILD_ANY=1
-    if not exist "dist\arm64\Debug\Tolk.dll" if not exist "dist\arm64\Release\Tolk.dll" (
-        echo WARNING: ARM64 build marked as success but no DLL found in dist.
-        set BUILD_FAILED=1
-    )
-)
-
-if %BUILD_ANY%==0 (
-    echo.
-    echo FATAL: All builds failed. No output was produced.
-    echo.
-    exit /b 1
-)
-
-if %BUILD_FAILED%==1 (
-    echo.
-    echo WARNING: Some builds did not produce expected output.
-    echo.
-)
-
+call :REFRESH_ENV
 exit /b 0

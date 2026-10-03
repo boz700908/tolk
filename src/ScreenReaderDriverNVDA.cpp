@@ -15,7 +15,8 @@ ScreenReaderDriverNVDA::ScreenReaderDriverNVDA() :
   nvdaController_speakText(nullptr),
   nvdaController_brailleMessage(nullptr),
   nvdaController_cancelSpeech(nullptr),
-  nvdaController_testIfRunning(nullptr)
+  nvdaController_testIfRunning(nullptr),
+  nvdaController_isSpeaking(nullptr)
 {
 #ifdef _M_ARM64
   TOLK_LOG_INFO("NVDA: Loading ARM64 native nvdaControllerClientARM64.dll");
@@ -36,9 +37,13 @@ ScreenReaderDriverNVDA::ScreenReaderDriverNVDA() :
   nvdaController_brailleMessage = (NVDAController_brailleMessage)GetProcAddress(controller, "nvdaController_brailleMessage");
   nvdaController_cancelSpeech = (NVDAController_cancelSpeech)GetProcAddress(controller, "nvdaController_cancelSpeech");
   nvdaController_testIfRunning = (NVDAController_testIfRunning)GetProcAddress(controller, "nvdaController_testIfRunning");
+  // Added in NVDA controller client 3.0 (NVDA 2026.3+); optional for older clients.
+  nvdaController_isSpeaking = (NVDAController_isSpeaking)GetProcAddress(controller, "nvdaController_isSpeaking");
   int loadedCount = (nvdaController_speakText?1:0) + (nvdaController_brailleMessage?1:0) +
-                    (nvdaController_cancelSpeech?1:0) + (nvdaController_testIfRunning?1:0);
-  TOLK_LOG_INFO("NVDA: Loaded %d/4 API functions", loadedCount);
+                    (nvdaController_cancelSpeech?1:0) + (nvdaController_testIfRunning?1:0) +
+                    (nvdaController_isSpeaking?1:0);
+  TOLK_LOG_INFO("NVDA: Loaded %d/5 API functions (isSpeaking %s)",
+                loadedCount, nvdaController_isSpeaking ? "available" : "unavailable");
 }
 ScreenReaderDriverNVDA::~ScreenReaderDriverNVDA() {
   if (controller) {
@@ -58,6 +63,13 @@ bool ScreenReaderDriverNVDA::Braille(const wchar_t *str) {
 bool ScreenReaderDriverNVDA::Silence() {
   if (nvdaController_cancelSpeech) return (nvdaController_cancelSpeech() == 0);
   return false;
+}
+bool ScreenReaderDriverNVDA::IsSpeaking() {
+  if (!nvdaController_isSpeaking) return false;
+  boolean speaking = FALSE;
+  // Older NVDA versions (< 2026.3) answer RPC_S_UNKNOWN_IF, so this fails safely.
+  if (nvdaController_isSpeaking(&speaking) != 0) return false;
+  return speaking != FALSE;
 }
 bool ScreenReaderDriverNVDA::IsActive() {
   // Performance: Check cache first (100ms timeout)
