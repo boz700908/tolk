@@ -22,6 +22,7 @@
 #include "../ScreenReaderDriverWE.h"
 #include "../ScreenReaderDriverZDCloud.h"
 #include "../ScreenReaderDriverZDSR.h"
+#include "../ScreenReaderDriverZT.h"
 
 namespace {
 
@@ -43,6 +44,7 @@ const unsigned long kBackendSNova = 5;
 const unsigned long kBackendZDSR = 6;
 const unsigned long kBackendBOY = 7;
 const unsigned long kBackendZDCloud = 8;
+const unsigned long kBackendZT = 9;
 
 const unsigned long kMaximumTextLength = 1u << 20;
 
@@ -99,6 +101,7 @@ std::unique_ptr<ScreenReaderDriver> CreateDriver(unsigned long backend) {
     case kBackendZDSR:   return std::unique_ptr<ScreenReaderDriver>(new ScreenReaderDriverZDSR());
     case kBackendBOY:    return std::unique_ptr<ScreenReaderDriver>(new ScreenReaderDriverBOY());
     case kBackendZDCloud:return std::unique_ptr<ScreenReaderDriver>(new ScreenReaderDriverZDCloud());
+    case kBackendZT:     return std::unique_ptr<ScreenReaderDriver>(new ScreenReaderDriverZT());
     default: return std::unique_ptr<ScreenReaderDriver>();
   }
 }

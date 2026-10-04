@@ -1,7 +1,7 @@
 /**
  *  Product:        Tolk
  *  File:           ScreenReaderDriverZDCloud.cpp
- *  Description:    Driver for the ZDCloud cloud speech backend.
+ *  Description:    Driver for the ZDCloud (之多云) screen reader.
  *  License:        LGPLv3
  */
 // The ZDCloud backend ships as the 32-bit ZDCloudAPI.dll. It has no public

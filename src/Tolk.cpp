@@ -127,8 +127,8 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Load() {
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverWE>());
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverSA>());
 #else
-    // These backends are COM servers with no ARM64 build, so a 64-bit helper
-    // process hosts them on ARM64.
+    // These backends have no ARM64 build, so a 64-bit helper process hosts
+    // them on ARM64.
     TOLK_LOG_INFO("JAWS/Window-Eyes/System Access: using the 64-bit bridge helper");
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"JAWS", true, true, TolkBridgeBackendJAWS));
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"Window-Eyes", true, true, TolkBridgeBackendWE));
@@ -140,7 +140,12 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Load() {
     TOLK_LOG_INFO("SuperNova: using the 32-bit bridge helper");
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"SuperNova", true, false, TolkBridgeBackendSNova));
 #endif
+#if TOLK_CAN_LOAD_X86 || TOLK_CAN_LOAD_X64
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverZT>());
+#else
+    TOLK_LOG_INFO("ZoomText: using the 64-bit bridge helper");
+    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"ZoomText", true, false, TolkBridgeBackendZT));
+#endif
     // Chinese screen readers (regional market)
 #if TOLK_CAN_LOAD_X86 || TOLK_CAN_LOAD_X64
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverZDSR>());

@@ -266,6 +266,7 @@ TolkBridgeArch TolkBridgeArchForBackend(TolkBridgeBackend backend) {
     case TolkBridgeBackendSA:
     case TolkBridgeBackendZDSR:
     case TolkBridgeBackendBOY:
+    case TolkBridgeBackendZT:
     default:
       return TolkBridgeArchX64;
   }

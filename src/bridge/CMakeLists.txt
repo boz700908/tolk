@@ -20,8 +20,10 @@ add_executable(TolkBridge
   ../ScreenReaderDriverZDSR.cpp
   ../ScreenReaderDriverBOY.cpp
   ../ScreenReaderDriverZDCloud.cpp
+  ../ScreenReaderDriverZT.cpp
   ../fsapi.c
   ../wineyes.c
+  ../zt.c
 )
 
 target_include_directories(TolkBridge PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")

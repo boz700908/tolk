@@ -1,7 +1,7 @@
 /**
  *  Product:        Tolk
  *  File:           ScreenReaderDriverZDCloud.h
- *  Description:    Driver for the ZDCloud cloud speech backend.
+ *  Description:    Driver for the ZDCloud (之多云) screen reader.
  *  License:        LGPLv3
  */
 #ifndef _SCREEN_READER_DRIVER_ZDCLOUD_H_
@@ -9,8 +9,9 @@
 #include <windows.h>
 #include <string>
 #include "ScreenReaderDriver.h"
-// ZDCloud is a cloud speech backend. It has no public header, so the exports
-// are resolved dynamically to keep Tolk usable when it is not present.
+// ZDCloud (之多云) is a screen reader; its speech reads the content of its own
+// features. It has no public header, so the exports are resolved dynamically
+// to keep Tolk usable when it is not present.
 class ScreenReaderDriverZDCloud : public ScreenReaderDriver {
 public:
   ScreenReaderDriverZDCloud();

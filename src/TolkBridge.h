@@ -69,7 +69,8 @@ enum TolkBridgeBackend {
   TolkBridgeBackendSNova = 5,
   TolkBridgeBackendZDSR = 6,
   TolkBridgeBackendBOY = 7,
-  TolkBridgeBackendZDCloud = 8
+  TolkBridgeBackendZDCloud = 8,
+  TolkBridgeBackendZT = 9
 };
 
 // Pipe protocol commands. Keep in sync with src/bridge/main.cpp.
