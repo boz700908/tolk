@@ -26,7 +26,10 @@ struct BridgeReply {
 // Resource ids embedded by src/CMakeLists.txt. Keep the two in sync.
 const int kBridgeImageResource[2] = { 101, 102 };
 
-const wchar_t kBridgeExeName[] = L"TolkBridge.exe";
+// Every helper instance gets its own image file, named after the host process
+// that extracted it. Several processes can use the bridge at the same time, and
+// the name lets a later run tell stale images from live ones.
+const wchar_t kBridgeExePrefix[] = L"TolkBridge";
 const DWORD kBridgeWaitStepMs = 25;
 const int kBridgeWaitAttempts = 200;
 const unsigned long kMaximumTextLength = 1u << 20;
@@ -107,18 +110,81 @@ bool ExtractResource(HMODULE module, int id, const std::wstring &target) {
   return remaining == 0;
 }
 
-std::wstring ArchDirectory(TolkBridgeArch arch) {
+std::wstring BridgeRootPath() {
   wchar_t buffer[MAX_PATH] = {};
   DWORD length = GetEnvironmentVariableW(L"LOCALAPPDATA", buffer, MAX_PATH);
   if (length == 0 || length >= MAX_PATH) length = GetTempPathW(MAX_PATH, buffer);
   std::wstring base(buffer, length);
   while (!base.empty() && (base.back() == L'\\' || base.back() == L'/')) base.pop_back();
-  const std::wstring root = base + L"\\Tolk\\Bridge";
-  EnsureDirectory(base + L"\\Tolk");
+  return base + L"\\Tolk\\Bridge";
+}
+
+std::wstring ArchDirectoryPath(TolkBridgeArch arch) {
+  return BridgeRootPath() + (arch == TolkBridgeArchX86 ? L"\\x86" : L"\\x64");
+}
+
+std::wstring EnsureArchDirectory(TolkBridgeArch arch) {
+  const std::wstring root = BridgeRootPath();
+  EnsureDirectory(root.substr(0, root.find_last_of(L'\\')));
   EnsureDirectory(root);
-  const std::wstring target = root + (arch == TolkBridgeArchX86 ? L"\\x86" : L"\\x64");
+  const std::wstring target = ArchDirectoryPath(arch);
   EnsureDirectory(target);
   return target;
+}
+
+// Best effort: drop the now-empty cache directories when the bridge is gone.
+void RemoveArchDirectory(TolkBridgeArch arch) {
+  const std::wstring root = BridgeRootPath();
+  RemoveDirectoryW(ArchDirectoryPath(arch).c_str());
+  RemoveDirectoryW(root.c_str());
+  RemoveDirectoryW(root.substr(0, root.find_last_of(L'\\')).c_str());
+}
+
+// The helpers are put in a job object so the system terminates them when the
+// host process ends, even if the app never called Tolk_Unload or a helper is
+// stuck in a driver call. The job handle stays open for the process lifetime.
+HANDLE BridgeJob() {
+  static HANDLE job = []() -> HANDLE {
+    HANDLE created = CreateJobObjectW(nullptr, nullptr);
+    if (!created) return nullptr;
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits = {};
+    limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    if (!SetInformationJobObject(created, JobObjectExtendedLimitInformation, &limits, sizeof(limits))) {
+      CloseHandle(created);
+      return nullptr;
+    }
+    return created;
+  }();
+  return job;
+}
+
+// Removes images left behind by a host that exited without unloading Tolk. The
+// owner process id is part of the name: a file whose owner is gone is stale, a
+// file whose owner still runs may belong to another Tolk host in this session.
+void RemoveStaleImages(const std::wstring &directory) {
+  // Older builds used a single shared name; clean it up once it is not in use.
+  DeleteFileW((directory + L"\\" + kBridgeExePrefix + L".exe").c_str());
+  const std::wstring pattern = directory + L"\\" + kBridgeExePrefix + L"_*.exe";
+  WIN32_FIND_DATAW entry = {};
+  HANDLE search = FindFirstFileW(pattern.c_str(), &entry);
+  if (search == INVALID_HANDLE_VALUE) return;
+  do {
+    if (entry.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+    const std::wstring name = entry.cFileName;
+    const size_t first = name.find(L'_');
+    const size_t second = first == std::wstring::npos ? std::wstring::npos : name.find(L'_', first + 1);
+    if (first == std::wstring::npos || second == std::wstring::npos) continue;
+    const unsigned long owner = wcstoul(name.substr(first + 1, second - first - 1).c_str(), nullptr, 10);
+    if (owner == 0 || owner == GetCurrentProcessId()) continue;
+    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, owner);
+    if (process) {
+      CloseHandle(process);
+      continue;
+    }
+    if (GetLastError() != ERROR_INVALID_PARAMETER) continue;
+    DeleteFileW((directory + L"\\" + name).c_str());
+  } while (FindNextFileW(search, &entry));
+  FindClose(search);
 }
 
 // One helper process per architecture, shared by every bridged backend.
@@ -126,6 +192,7 @@ struct BridgeChannel {
   TolkBridgeArch arch;
   HANDLE pipe;
   HANDLE process;
+  std::wstring exePath;
   int references;
   std::mutex io;
 };
@@ -137,16 +204,19 @@ bool StartBridgeChannel(BridgeChannel &channel) {
   const wchar_t *name = ArchName(channel.arch);
   HMODULE module = TolkModule();
   if (!module) return false;
-  const std::wstring directory = ArchDirectory(channel.arch);
-  const std::wstring exePath = directory + L"\\" + kBridgeExeName;
+  const std::wstring directory = EnsureArchDirectory(channel.arch);
+  RemoveStaleImages(directory);
+  static unsigned long counter = 0;
+  const unsigned long instance = ++counter;
+  const std::wstring exePath = directory + L"\\" + kBridgeExePrefix + L"_" +
+      std::to_wstring(GetCurrentProcessId()) + L"_" + std::to_wstring(instance) + L".exe";
   if (!ExtractResource(module, kBridgeImageResource[channel.arch], exePath)) {
     TOLK_LOG_WARN("TolkBridge: no embedded %ls helper image", name);
     return false;
   }
-  static unsigned long counter = 0;
   const std::wstring pipeName = L"\\\\.\\pipe\\TolkBridge_" +
       std::to_wstring(GetCurrentProcessId()) + L"_" + std::to_wstring(static_cast<int>(channel.arch)) +
-      L"_" + std::to_wstring(++counter);
+      L"_" + std::to_wstring(instance);
   // The helper loads the backend modules from Tolk.dll's directory, which is
   // where the - for example - x64 modules of the 64-bit backends are shipped.
   std::wstring commandLine = L"\"" + exePath + L"\" \"" + pipeName + L"\" \"" + ModuleDirectory(module) + L"\"";
@@ -156,7 +226,13 @@ bool StartBridgeChannel(BridgeChannel &channel) {
   if (!CreateProcessW(exePath.c_str(), &commandLine[0], nullptr, nullptr, FALSE,
                       CREATE_NO_WINDOW, nullptr, directory.c_str(), &startup, &process)) {
     TOLK_LOG_WARN("TolkBridge: failed to start the %ls helper (%lu)", name, GetLastError());
+    DeleteFileW(exePath.c_str());
+    RemoveArchDirectory(channel.arch);
     return false;
+  }
+  if (HANDLE job = BridgeJob()) {
+    if (!AssignProcessToJobObject(job, process.hProcess))
+      TOLK_LOG_INFO("TolkBridge: could not add the %ls helper to the cleanup job (%lu)", name, GetLastError());
   }
   CloseHandle(process.hThread);
   // WaitNamedPipe returns immediately when the pipe does not exist yet, so a
@@ -177,7 +253,10 @@ bool StartBridgeChannel(BridgeChannel &channel) {
     else
       TOLK_LOG_WARN("TolkBridge: %ls helper did not become ready", name);
     TerminateProcess(process.hProcess, 1);
+    WaitForSingleObject(process.hProcess, 5000);
     CloseHandle(process.hProcess);
+    DeleteFileW(exePath.c_str());
+    RemoveArchDirectory(channel.arch);
     return false;
   }
   DWORD mode = PIPE_READMODE_BYTE;
@@ -185,6 +264,7 @@ bool StartBridgeChannel(BridgeChannel &channel) {
   TOLK_LOG_INFO("TolkBridge: %ls helper started (pid %lu)", name, process.dwProcessId);
   channel.pipe = pipe;
   channel.process = process.hProcess;
+  channel.exePath = exePath;
   return true;
 }
 
@@ -221,10 +301,16 @@ void ReleaseChannel(BridgeChannel *channel) {
     channel->pipe = INVALID_HANDLE_VALUE;
   }
   if (channel->process) {
-    if (WaitForSingleObject(channel->process, 1000) == WAIT_TIMEOUT) TerminateProcess(channel->process, 0);
+    if (WaitForSingleObject(channel->process, 1000) == WAIT_TIMEOUT) {
+      TerminateProcess(channel->process, 0);
+      WaitForSingleObject(channel->process, 5000);
+    }
     CloseHandle(channel->process);
     channel->process = nullptr;
   }
+  // The helper has exited, so its image can be removed now.
+  if (!channel->exePath.empty()) DeleteFileW(channel->exePath.c_str());
+  RemoveArchDirectory(channel->arch);
   delete channel;
 }
 

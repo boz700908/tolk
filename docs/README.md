@@ -86,7 +86,7 @@ A module that the process cannot load itself is loaded by a helper process of th
 * The backends without an x64 module at all (SuperNova and ZDCloud, which are 32-bit only) fall back to their x86 module and run in the embedded 32-bit helper.
 * Windows 11 on ARM runs the helpers through its x86 and x64 emulation.
 
-The helper image is the only piece that is not shipped as-is: it is stored as a resource inside `Tolk.dll` and extracted to `%LOCALAPPDATA%\Tolk\Bridge\<arch>` on first use. The backend modules are exposed next to `Tolk.dll` exactly like a normal distribution - a non-x86 build carries the 64-bit module set plus the 32-bit modules that have no 64-bit build (the 32-bit-only backends, which the helper loads) - and no module is shipped twice in both widths.
+The helper image is the only piece that is not shipped as-is: it is stored as a resource inside `Tolk.dll` and extracted to `%LOCALAPPDATA%\Tolk\Bridge\<arch>` on first use. The extracted image is removed again when Tolk unloads; if the host exits without unloading Tolk, the next run removes the leftovers. The helper processes themselves are stopped when the host process ends. The backend modules are exposed next to `Tolk.dll` exactly like a normal distribution - a non-x86 build carries the 64-bit module set plus the 32-bit modules that have no 64-bit build (the 32-bit-only backends, which the helper loads) - and no module is shipped twice in both widths.
 
 ### Wrappers
 
