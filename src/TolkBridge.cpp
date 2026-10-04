@@ -23,21 +23,8 @@ struct BridgeReply {
   int result;
 };
 
-struct PayloadEntry {
-  int resourceId;
-  const wchar_t *fileName;
-};
-
 // Resource ids embedded by src/CMakeLists.txt. Keep the two in sync.
 const int kBridgeImageResource[2] = { 101, 102 };
-
-// Modules the 32-bit helper needs: the 32-bit only backends. The modules that
-// also have a 64-bit build are not embedded; they are shipped next to Tolk.dll
-// and loaded from there (see TOLK_EXTRA_LIB_FILES in src/CMakeLists.txt).
-const PayloadEntry kX86Payloads[] = {
-  { 250, L"dolapi32.dll" },     // SuperNova
-  { 280, L"ZDCloudAPI.dll" }    // ZDCloud
-};
 
 const wchar_t kBridgeExeName[] = L"TolkBridge.exe";
 const DWORD kBridgeWaitStepMs = 25;
@@ -155,13 +142,6 @@ bool StartBridgeChannel(BridgeChannel &channel) {
   if (!ExtractResource(module, kBridgeImageResource[channel.arch], exePath)) {
     TOLK_LOG_WARN("TolkBridge: no embedded %ls helper image", name);
     return false;
-  }
-  if (channel.arch == TolkBridgeArchX86) {
-    for (size_t index = 0; index < sizeof(kX86Payloads) / sizeof(kX86Payloads[0]); ++index) {
-      if (!ExtractResource(module, kX86Payloads[index].resourceId, directory + L"\\" + kX86Payloads[index].fileName)) {
-        TOLK_LOG_WARN("TolkBridge: failed to extract %ls for the x86 helper", kX86Payloads[index].fileName);
-      }
-    }
   }
   static unsigned long counter = 0;
   const std::wstring pipeName = L"\\\\.\\pipe\\TolkBridge_" +

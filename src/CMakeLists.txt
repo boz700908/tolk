@@ -112,14 +112,13 @@ if(CMAKE_GENERATOR MATCHES "Visual Studio")
       CMAKE_GENERATOR "${CMAKE_GENERATOR}"
       CMAKE_GENERATOR_PLATFORM "Win32"
       ${TOLK_BRIDGE_TOOLSET_ARGS}
+      BUILD_ALWAYS 1
       BUILD_COMMAND "${CMAKE_COMMAND}" --build "${TOLK_BRIDGE_X86_DIR}" --config Release
       INSTALL_COMMAND ""
       BUILD_BYPRODUCTS "${TOLK_BRIDGE_X86_EXE}"
     )
     tolk_bridge_embed_file(101 "${TOLK_BRIDGE_X86_EXE}")
     list(APPEND TOLK_BRIDGE_DEPENDS tolk_bridge_x86)
-    tolk_bridge_embed_file(250 "${CMAKE_SOURCE_DIR}/libs/x86/dolapi32.dll")
-    tolk_bridge_embed_file(280 "${CMAKE_SOURCE_DIR}/libs/x86/ZDCloudAPI.dll")
   endif()
   # 64-bit helper: used by ARM64 builds, which cannot load x64 modules.
   if(TOLK_ARCH STREQUAL "arm64")
@@ -131,6 +130,7 @@ if(CMAKE_GENERATOR MATCHES "Visual Studio")
       CMAKE_GENERATOR "${CMAKE_GENERATOR}"
       CMAKE_GENERATOR_PLATFORM "x64"
       ${TOLK_BRIDGE_TOOLSET_ARGS}
+      BUILD_ALWAYS 1
       BUILD_COMMAND "${CMAKE_COMMAND}" --build "${TOLK_BRIDGE_X64_DIR}" --config Release
       INSTALL_COMMAND ""
       BUILD_BYPRODUCTS "${TOLK_BRIDGE_X64_EXE}"
@@ -167,16 +167,21 @@ add_custom_command(TARGET Tolk POST_BUILD
     "$<$<CONFIG:Debug>:${TOLK_DIST_DIR_DEBUG}>$<$<CONFIG:Release>:${TOLK_DIST_DIR_RELEASE}>/"
   COMMENT "Copying Tolk DLL/LIB to dist/${TOLK_ARCH}-$<CONFIG>"
 )
-# Copy architecture-specific libs (DLLs, ini files) to dist
+# Copy architecture-specific libs (DLLs, ini files) to dist. Every module a
+# build may use is exposed next to Tolk.dll exactly like a plain distribution;
+# only the bridge helper image is kept inside Tolk.dll.
 file(GLOB TOLK_LIB_FILES "${TOLK_LIBS_DIR}/*")
-# ARM64 and ARM64EC have no backend modules of their own for the 64-bit
-# backends, so their distributions ship the x64 modules unchanged. The helper
-# and Tolk.dll load them next to Tolk.dll, exactly like the x64 build does.
 set(TOLK_EXTRA_LIB_FILES "")
-if(TOLK_ARCH STREQUAL "arm64" OR TOLK_ARCH STREQUAL "arm64ec")
-  file(GLOB TOLK_EXTRA_LIB_FILES "${CMAKE_SOURCE_DIR}/libs/x64/*")
-  # NVDA uses its own native client on every architecture.
-  list(REMOVE_ITEM TOLK_EXTRA_LIB_FILES "${CMAKE_SOURCE_DIR}/libs/x64/nvdaControllerClient64.dll")
+# The 32-bit only backends (SuperNova, ZDCloud) are driven through the 32-bit
+# helper on every non-x86 build, so the 32-bit modules ship unchanged.
+if(NOT TOLK_ARCH STREQUAL "x86")
+  file(GLOB TOLK_EXTRA_LIB_FILES "${CMAKE_SOURCE_DIR}/libs/x86/*")
+endif()
+# The x64 modules are used in-process on x64 and ARM64EC, and through the
+# 64-bit helper on ARM64.
+if(TOLK_ARCH STREQUAL "x64" OR TOLK_ARCH STREQUAL "arm64ec" OR TOLK_ARCH STREQUAL "arm64")
+  file(GLOB TOLK_X64_LIB_FILES "${CMAKE_SOURCE_DIR}/libs/x64/*")
+  list(APPEND TOLK_EXTRA_LIB_FILES ${TOLK_X64_LIB_FILES})
 endif()
 add_custom_command(TARGET Tolk POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different

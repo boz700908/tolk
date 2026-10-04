@@ -83,10 +83,10 @@ A module that the process cannot load itself is loaded by a helper process of th
 * x86 builds load every backend directly and embed no helper.
 * Every architecture uses a native NVDA client (NVDA 2026.3 or later ships a native ARM64EC client next to the ARM64 one), so NVDA never needs a helper.
 * The backends without an ARM64 module use their x64 module on ARM64 and ARM64EC. An ARM64EC process loads x64 modules in-process; on ARM64 they run in an embedded 64-bit helper.
-* The backends without an x64 module at all (SuperNova and ZDCloud, which are 32-bit only) fall back to their x86 module and run in an embedded 32-bit helper.
+* The backends without an x64 module at all (SuperNova and ZDCloud, which are 32-bit only) fall back to their x86 module and run in the embedded 32-bit helper.
 * Windows 11 on ARM runs the helpers through its x86 and x64 emulation.
 
-The helper image is never shipped as a separate file: it is stored as a resource inside `Tolk.dll` and extracted to `%LOCALAPPDATA%\Tolk\Bridge\<arch>` on first use. The 32-bit-only modules are embedded the same way. Modules that also have a 64-bit build are not embedded: the ARM64 and ARM64EC distributions ship the x64 modules unchanged next to `Tolk.dll`, and the helper loads them from there.
+The helper image is the only piece that is not shipped as-is: it is stored as a resource inside `Tolk.dll` and extracted to `%LOCALAPPDATA%\Tolk\Bridge\<arch>` on first use. The backend modules are exposed next to `Tolk.dll` exactly like a normal distribution - a non-x86 build carries the 32-bit module set and, where relevant, the 64-bit one as well - and the helper loads them from there.
 
 ### Wrappers
 
