@@ -353,6 +353,8 @@ TolkBridgeArch TolkBridgeArchForBackend(TolkBridgeBackend backend) {
     case TolkBridgeBackendZDSR:
     case TolkBridgeBackendBOY:
     case TolkBridgeBackendZT:
+    case TolkBridgeBackendPCTalker:
+    case TolkBridgeBackendSenseReader:
     default:
       return TolkBridgeArchX64;
   }

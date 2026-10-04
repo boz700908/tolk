@@ -82,8 +82,9 @@ A module that the process cannot load itself is loaded by a helper process of th
 
 * x86 builds load every backend directly and embed no helper.
 * Every architecture uses a native NVDA client (NVDA 2026.3 or later ships a native ARM64EC client next to the ARM64 one), so NVDA never needs a helper.
-* The backends that have no ARM64 build use x64 on ARM64 and ARM64EC: an x64 module where one exists (System Access, ZDSR, BoyPCReader) or the x64 COM view for the COM-only drivers (JAWS, Window-Eyes, ZoomText). An ARM64EC process uses them in-process; on ARM64 they run in the embedded 64-bit helper.
+* The backends that have no ARM64 build use x64 on ARM64 and ARM64EC: an x64 module where one exists (System Access, ZDSR, BoyPCReader, PC-Talker) or the x64 COM view for the COM-only drivers (JAWS, Window-Eyes, ZoomText, Sense Reader). An ARM64EC process uses them in-process; on ARM64 they run in the embedded 64-bit helper.
 * The backends without an x64 module at all (SuperNova and ZDCloud, which are 32-bit only) fall back to their x86 module and run in the embedded 32-bit helper.
+* UIA and OneCore are Windows components, so every architecture uses its native version and no helper.
 * Windows 11 on ARM runs the helpers through its x86 and x64 emulation.
 
 The helper image is the only piece that is not shipped as-is: it is stored as a resource inside `Tolk.dll` and extracted to `%LOCALAPPDATA%\Tolk\Bridge\<arch>` on first use. The extracted image is removed again when Tolk unloads; if the host exits without unloading Tolk, the next run removes the leftovers. The helper processes themselves are stopped when the host process ends. The backend modules are exposed next to `Tolk.dll` exactly like a normal distribution - a non-x86 build carries the 64-bit module set plus the 32-bit modules that have no 64-bit build (the 32-bit-only backends, which the helper loads) - and no module is shipped twice in both widths.
@@ -111,6 +112,7 @@ The following table lists the supported screen readers in the order in which the
 * `native` - the driver runs inside the `Tolk.dll` process using the API or module for that architecture.
 * `x64` - the backend has no ARM64 build, so x64 is used: an ARM64EC process loads the x64 code in-process (under Windows' x64 emulation), an ARM64 process runs it in the embedded 64-bit helper.
 * `x86` - the backend has no 64-bit build, so its 32-bit module runs in the embedded 32-bit helper.
+* `Status` - the driver implements the `Tolk_IsSpeaking` speech-state query.
 
 | Screen Reader | Speech | Braille | Status | x86 | x64 | ARM64 | ARM64EC |
 |---------------|--------|---------|--------|-----|-----|-------|---------|
@@ -123,12 +125,21 @@ The following table lists the supported screen readers in the order in which the
 | ZDSR          | Yes    | Yes     | Yes    | native | native | x64 | x64 |
 | BoyPCReader   | Yes    | No      | Yes    | native | native | x64 | x64 |
 | ZDCloud (之多云) | Yes    | No      | Yes    | native | x86 | x86 | x86 |
+| PC-Talker     | Yes    | Yes     | Yes    | native | native | x64 | x64 |
+| Sense Reader  | Yes    | No      | No     | native | native | x64 | x64 |
+| UIA           | Yes    | No      | No     | native | native | native | native |
+| OneCore       | Yes    | No      | Yes    | native | native | native | native |
 | SAPI          | Yes    | No      | Yes    | native | native | partial* | partial* |
 
 ### Notes
 
 * A backend that cannot run in the current process (no module or COM server for its architecture) runs through an embedded helper process; see `Cross-architecture support`. This is transparent to the caller.
 * On ARM64, Windows 11 x86 and x64 emulation is required for the backends that have no ARM64 module.
+* PC-Talker (Japanese) and Sense Reader (Korean) are regional screen readers. PC-Talker speaks and drives braille displays through `PCTKUSR.dll`; Sense Reader speaks through the COM server of `xvsrd.exe`. Neither ships an ARM64 build, so ARM64 drives them through the embedded 64-bit helper exactly like the other local readers.
+* Sense Reader does not expose a speech-state query, so `Tolk_IsSpeaking` returns `false` while it is active.
+* UIA speaks through UI Automation notification events, which any listening UIA client (such as Narrator) announces. OneCore speaks through the Windows speech engine used by Narrator (`Windows.Media.SpeechSynthesis`). Both are only offered while a screen reader has set the Windows screen-reader flag, and UIA additionally requires a listening UIA client; both are tried after every named screen reader and before SAPI, so they never displace a real screen reader. Because they are provided by Windows, every architecture uses its native components.
+* The UIA and OneCore drivers require Windows 10 (1709 for UIA notifications). On older systems they report themselves unavailable and Tolk falls back as usual.
+* The UIA, OneCore, PC-Talker and Sense Reader drivers were ported from the Prism project (https://github.com/ethindp/prism, MPL-2.0). Prism's D-Bus backends (Orca, speech-dispatcher, Spiel) are not ported: they depend on GLib/GIO and D-Bus and target Linux (or Wine) rather than a native Windows screen reader.
 * ZDCloud (之多云) is a screen reader driver, not a general-purpose speech backend: its speech reads the content of its own features. It is tried after the other screen reader drivers and before SAPI.
 * NVDA speech-state queries (`Tolk_IsSpeaking`) require NVDA 2026.3 or later, which introduced `nvdaController_isSpeaking`. On older versions `Tolk_IsSpeaking` returns `false`.
 * SuperNova and ZDCloud only provide a 32-bit API. On 64-bit builds they are driven through the embedded 32-bit helper; see `Cross-architecture support`.

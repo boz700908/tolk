@@ -11,6 +11,10 @@ set(TOLK_SOURCES
   ScreenReaderDriverZDCloud.cpp
   ScreenReaderDriverZDSR.cpp
   ScreenReaderDriverZT.cpp
+  ScreenReaderDriverOneCore.cpp
+  ScreenReaderDriverPCTalker.cpp
+  ScreenReaderDriverSenseReader.cpp
+  ScreenReaderDriverUIA.cpp
   fsapi.c
   wineyes.c
   zt.c
@@ -32,6 +36,10 @@ set(TOLK_HEADERS
   ScreenReaderDriverZDCloud.h
   ScreenReaderDriverZDSR.h
   ScreenReaderDriverZT.h
+  ScreenReaderDriverOneCore.h
+  ScreenReaderDriverPCTalker.h
+  ScreenReaderDriverSenseReader.h
+  ScreenReaderDriverUIA.h
   fsapi.h
   wineyes.h
   zt.h
@@ -63,6 +71,10 @@ target_link_libraries(Tolk PRIVATE
   User32
   Ole32
   OleAut32
+  # OneCore uses C++/WinRT (Windows.Media.SpeechSynthesis and
+  # Windows.Media.Playback); windowsapp.lib is the umbrella import library for
+  # the Windows Runtime.
+  windowsapp
 )
 # MSVC-specific settings - per configuration
 if(MSVC)

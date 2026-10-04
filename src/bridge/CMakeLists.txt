@@ -21,6 +21,8 @@ add_executable(TolkBridge
   ../ScreenReaderDriverBOY.cpp
   ../ScreenReaderDriverZDCloud.cpp
   ../ScreenReaderDriverZT.cpp
+  ../ScreenReaderDriverPCTalker.cpp
+  ../ScreenReaderDriverSenseReader.cpp
   ../fsapi.c
   ../wineyes.c
   ../zt.c

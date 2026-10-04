@@ -21,6 +21,10 @@
 #include "ScreenReaderDriverZDCloud.h"
 #include "ScreenReaderDriverZDSR.h"
 #include "ScreenReaderDriverZT.h"
+#include "ScreenReaderDriverOneCore.h"
+#include "ScreenReaderDriverPCTalker.h"
+#include "ScreenReaderDriverSenseReader.h"
+#include "ScreenReaderDriverUIA.h"
 
 // Performance: SRWLock instead of CRITICAL_SECTION (lighter, supports read/write separation)
 static SRWLOCK g_srwLock = SRWLOCK_INIT;
@@ -161,6 +165,23 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Load() {
     TOLK_LOG_INFO("ZDCloud: using the 32-bit bridge helper");
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"ZDCloud", true, false, TolkBridgeBackendZDCloud));
 #endif
+    // Japanese and Korean screen readers (regional market). They ship 64-bit
+    // code but no ARM64 build, so an ARM64 build drives them through the
+    // 64-bit helper like the other local readers.
+#if TOLK_CAN_LOAD_X86 || TOLK_CAN_LOAD_X64
+    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverPCTalker>());
+    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverSenseReader>());
+#else
+    TOLK_LOG_INFO("PC-Talker/Sense Reader: using the 64-bit bridge helper");
+    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"PC-Talker", true, true, TolkBridgeBackendPCTalker));
+    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"Sense Reader", true, false, TolkBridgeBackendSenseReader));
+#endif
+    // Generic Windows backends: UIA notifications and the OneCore speech
+    // engine. Both only activate while a screen reader has set the Windows
+    // screen-reader flag, so they rank below the named screen readers and
+    // above the SAPI fallback.
+    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverUIA>());
+    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverOneCore>());
     if (g_trySAPI) {
       TOLK_LOG_INFO("Initializing SAPI fallback driver");
       g_sapi = std::make_unique<ScreenReaderDriverSAPI>();
