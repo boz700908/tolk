@@ -173,9 +173,19 @@ add_custom_command(TARGET Tolk POST_BUILD
 file(GLOB TOLK_LIB_FILES "${TOLK_LIBS_DIR}/*")
 set(TOLK_EXTRA_LIB_FILES "")
 # The 32-bit only backends (SuperNova, ZDCloud) are driven through the 32-bit
-# helper on every non-x86 build, so the 32-bit modules ship unchanged.
+# helper on every non-x86 build, so their 32-bit modules ship unchanged. A
+# 32-bit module whose backend also has a 64-bit build is not duplicated: the
+# 64-bit module below is the one that backend uses.
 if(NOT TOLK_ARCH STREQUAL "x86")
   file(GLOB TOLK_EXTRA_LIB_FILES "${CMAKE_SOURCE_DIR}/libs/x86/*")
+  foreach(TOLK_SHADOWED_X86_MODULE
+      nvdaControllerClient32.dll   # nvdaControllerClient64.dll
+      SAAPI32.dll                  # SAAPI64.dll
+      ZDSRAPI.dll                  # ZDSRAPI_x64.dll
+      byctrl.dll)                  # byctrl-x64.dll
+    list(REMOVE_ITEM TOLK_EXTRA_LIB_FILES
+      "${CMAKE_SOURCE_DIR}/libs/x86/${TOLK_SHADOWED_X86_MODULE}")
+  endforeach()
 endif()
 # The x64 modules are used in-process on x64 and ARM64EC, and through the
 # 64-bit helper on ARM64.
