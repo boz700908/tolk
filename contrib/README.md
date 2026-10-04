@@ -27,14 +27,16 @@ engine bindings and the repository README for the native API.
 
 ## In a release package
 
-A release build copies this layout into `dist/wrappers` and adds two things
-that are not in the repository:
+A release build copies this layout into `dist/wrappers`, shipping the
+documentation as HTML, and adds things that are not in the repository:
 
-* every Markdown document here is also rendered to HTML, next to its source;
+* every Markdown document here is rendered to `.html` and the Markdown source
+  is dropped, so the package never carries the same text twice;
 * `game-engines/gamemaker/bin/<arch>/TolkGml.dll` holds the prebuilt
   conversion shim for each architecture, so the GameMaker binding can be used
-  without a compiler. The source and `game-engines/gamemaker/build.bat` stay
-  available for architectures the package does not cover.
+  without a compiler. The shim source and `game-engines/gamemaker/build.bat`
+  are not shipped; take them from a source checkout if you need to build the
+  shim for an architecture the package does not cover.
 
 ## Common requirements
 

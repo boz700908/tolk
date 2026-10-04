@@ -347,6 +347,11 @@ if exist "contrib\game-engines" (
   del /q "dist\wrappers\game-engines\godot\addons\tolk\bin\.gitkeep" 2>nul
 )
 
+:: The GameMaker shim ships prebuilt, so its C source and build script are not
+:: duplicated in the package; only the compiled DLL under bin\<arch> is kept.
+if exist "dist\wrappers\game-engines\gamemaker\source" rmdir /s /q "dist\wrappers\game-engines\gamemaker\source"
+if exist "dist\wrappers\game-engines\gamemaker\build.bat" del /q "dist\wrappers\game-engines\gamemaker\build.bat"
+
 :: Overview of every wrapper layer in the package.
 if exist "contrib\README.md" copy /Y "contrib\README.md" "dist\wrappers\README.md" >nul
 
@@ -362,10 +367,16 @@ for %%A in (x86 x64 arm64 arm64ec) do (
   )
 )
 
-:: Every wrapper document is also rendered to HTML, like the main README.
+:: Every wrapper document is rendered to HTML, like the main README, and its
+:: Markdown source is then dropped so the package does not ship the same text
+:: twice. The list is taken once up front so deleting files mid-iteration is
+:: safe, and a document whose conversion failed keeps its Markdown source.
 if defined PANDOC_EXE if exist "dist\wrappers" (
-  for /r "dist\wrappers" %%F in (*.md) do (
+  for /f "delims=" %%F in ('dir /s /b "dist\wrappers\*.md" 2^>nul') do (
     call "!PANDOC_EXE!" -s --toc -r markdown -w html5 -o "%%~dpnF.html" "%%F" >nul 2>nul
+  )
+  for /f "delims=" %%F in ('dir /s /b "dist\wrappers\*.md" 2^>nul') do (
+    if exist "%%~dpnF.html" del /q "%%F"
   )
 )
 

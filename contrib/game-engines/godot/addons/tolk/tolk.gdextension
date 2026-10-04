@@ -1,5 +1,5 @@
 ; Tolk GDExtension for Godot 4.
-; Build the extension with SConstruct (see README.md), then copy Tolk.dll and
+; Build the extension with SConstruct (see the README), then copy Tolk.dll and
 ; its screen reader client modules from dist/<arch>/<config> into the same
 ; "bin" folder so the loader can find them.
 

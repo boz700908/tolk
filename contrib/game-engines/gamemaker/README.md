@@ -6,14 +6,15 @@ GameMaker strings are UTF-8 while Tolk speaks UTF-16, so a tiny shim,
 ## Getting the shim
 
 A Tolk release package already contains the prebuilt shim for every
-architecture under `bin/<arch>/TolkGml.dll`, so you can go straight to
-step 3 below and copy the one that matches your game. Building it yourself is
-only needed for an architecture the package does not cover.
+architecture under `bin/<arch>/TolkGml.dll`, so you can go straight to step 3
+below and copy the one that matches your game. The shim's C source and its
+`build.bat` are not part of the package; to build it for an architecture the
+package does not cover, use a Tolk source checkout:
 
 1. Build Tolk for the architecture your game uses (`build.bat release --x64`
    or `--x86`).
 2. Open a matching *Native Tools Command Prompt* and run `build.bat x64` (or
-   `build.bat x86`) in this folder.
+   `build.bat x86`) in the gamemaker folder of the checkout.
 3. Copy `TolkGml.dll`, `Tolk.dll` and every screen reader client module from
    `dist/<arch>/<config>` into the game's working directory, or ship them as
    *Included Files*. `TolkGml.dll` and `Tolk.dll` must have the same
