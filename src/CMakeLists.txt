@@ -75,6 +75,43 @@ if(MSVC)
     $<$<CONFIG:Release>:/LTCG>
   )
 endif()
+# --- ZDCloud 32-bit bridge for 64-bit builds ---
+# A 64-bit process cannot load the 32-bit ZDCloudAPI.dll. A small 32-bit bridge
+# is therefore built separately (forced to Win32) and embedded, together with
+# ZDCloudAPI.dll, into Tolk.dll as resources. At run time they are extracted to
+# a per-user cache directory, so no extra files are shipped next to Tolk.dll.
+if(TOLK_ARCH STREQUAL "x64" AND CMAKE_GENERATOR MATCHES "Visual Studio")
+  include(ExternalProject)
+  set(TOLK_ZDCLOUD_BRIDGE_DIR "${CMAKE_BINARY_DIR}/zdcloud_bridge32")
+  set(TOLK_ZDCLOUD_BRIDGE_EXE "${TOLK_ZDCLOUD_BRIDGE_DIR}/TolkZDCloudBridge32.exe")
+  set(TOLK_ZDCLOUD_API_DLL "${CMAKE_SOURCE_DIR}/libs/x86/ZDCloudAPI.dll")
+  set(TOLK_ZDCLOUD_BRIDGE_ARGS
+    CMAKE_GENERATOR "${CMAKE_GENERATOR}"
+    CMAKE_GENERATOR_PLATFORM "Win32"
+  )
+  if(CMAKE_GENERATOR_TOOLSET)
+    list(APPEND TOLK_ZDCLOUD_BRIDGE_ARGS CMAKE_GENERATOR_TOOLSET "${CMAKE_GENERATOR_TOOLSET}")
+  endif()
+  ExternalProject_Add(tolk_zdcloud_bridge32
+    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/zdcloud_bridge32"
+    BINARY_DIR "${TOLK_ZDCLOUD_BRIDGE_DIR}"
+    ${TOLK_ZDCLOUD_BRIDGE_ARGS}
+    BUILD_COMMAND "${CMAKE_COMMAND}" --build "${TOLK_ZDCLOUD_BRIDGE_DIR}" --config Release
+    INSTALL_COMMAND ""
+    BUILD_BYPRODUCTS "${TOLK_ZDCLOUD_BRIDGE_EXE}"
+  )
+  add_dependencies(Tolk tolk_zdcloud_bridge32)
+  file(TO_NATIVE_PATH "${TOLK_ZDCLOUD_BRIDGE_EXE}" TOLK_ZDCLOUD_BRIDGE_EXE_NATIVE)
+  file(TO_NATIVE_PATH "${TOLK_ZDCLOUD_API_DLL}" TOLK_ZDCLOUD_API_DLL_NATIVE)
+  # rc.exe treats backslashes as escape characters, so double them.
+  string(REPLACE "\\" "\\\\" TOLK_ZDCLOUD_BRIDGE_EXE_NATIVE "${TOLK_ZDCLOUD_BRIDGE_EXE_NATIVE}")
+  string(REPLACE "\\" "\\\\" TOLK_ZDCLOUD_API_DLL_NATIVE "${TOLK_ZDCLOUD_API_DLL_NATIVE}")
+  set(TOLK_ZDCLOUD_RC "${CMAKE_BINARY_DIR}/zdcloud_resources.rc")
+  file(WRITE "${TOLK_ZDCLOUD_RC}"
+    "101 RCDATA \"${TOLK_ZDCLOUD_BRIDGE_EXE_NATIVE}\"\n"
+    "102 RCDATA \"${TOLK_ZDCLOUD_API_DLL_NATIVE}\"\n")
+  target_sources(Tolk PRIVATE "${TOLK_ZDCLOUD_RC}")
+endif()
 # Install rules
 install(TARGETS Tolk
   RUNTIME DESTINATION bin

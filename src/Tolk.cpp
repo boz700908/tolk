@@ -133,10 +133,10 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Load() {
     // Chinese screen readers (regional market)
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverZDSR>());
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBOY>());
-#ifndef _WIN64
+#if defined(_M_X64) || !defined(_WIN64)
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverZDCloud>());
 #else
-    TOLK_LOG_INFO("ZDCloud driver skipped (32-bit only)");
+    TOLK_LOG_INFO("ZDCloud driver skipped (32-bit backend unavailable on this architecture)");
 #endif
     if (g_trySAPI) {
       TOLK_LOG_INFO("Initializing SAPI fallback driver");
