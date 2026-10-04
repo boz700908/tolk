@@ -26,6 +26,7 @@ option(TOLK_BUILD_JNI "Build with Java Native Interface support" ON)
 option(TOLK_BUILD_DOTNET "Build .NET wrapper DLL" ON)
 option(TOLK_BUILD_JAVA "Build Java JAR" ON)
 option(TOLK_BUILD_DOCS "Build documentation" ON)
+option(TOLK_BUILD_WRAPPER_TESTS "Compile the wrapper bindings as a test (nothing is installed or shipped)" OFF)
 
 # Detect architecture for libs directory
 if(CMAKE_GENERATOR_PLATFORM MATCHES "ARM64EC" OR CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64EC")
@@ -41,6 +42,11 @@ set(TOLK_LIBS_DIR "${CMAKE_SOURCE_DIR}/libs/${TOLK_ARCH}")
 
 # Core C++ DLL
 add_subdirectory(src)
+
+# Wrapper binding compile checks. Test only: never installed, never shipped.
+if(TOLK_BUILD_WRAPPER_TESTS)
+  add_subdirectory(tests/wrappers)
+endif()
 
 # .NET wrapper
 if(TOLK_BUILD_DOTNET)

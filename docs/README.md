@@ -109,6 +109,8 @@ Game engines are covered by bindings that are not compiled with Tolk itself; see
 * **GameMaker**: GML scripts over a small string-conversion shim.
 * **LOVE**: The LuaJIT binding in `contrib/lua` works unchanged.
 
+Every one of these bindings, including the game engine packages and the source-only layers, is collected in `dist/wrappers` of a release build; see `contrib/README.md`.
+
 ## Examples
 
 Take a look at the `examples` directory to get started. This directory contains console applications in the supported languages that demonstrate the basic usage. Note that the fallback speech engines (OneCore and SAPI) will stop speaking when your application closes, which means that they will not work with these console applications because they return immediately after queueing text. Add a short delay (sleep) to work around this if you want to try them.
@@ -181,9 +183,12 @@ build.bat release --x64          # Build Release only, for x64
 build.bat both --x86 --x64       # Build Debug and Release for x86 and x64
 build.bat release --arm64ec      # Build Release only, for ARM64EC
 build.bat release --clean        # Remove build-*/ and dist/ before building
+build.bat release --x64 --wrapper-tests   # Also compile the wrapper bindings (test only)
 ```
 
 `build.bat` is also the entry point used by CI. It runs in non-interactive CI mode automatically when `GITHUB_ACTIONS`, `APPVEYOR`, `TF_BUILD` or `CI` is set: tool installation is skipped and the build always starts clean. On a local machine, missing build tools (CMake, Visual Studio Build Tools, and optionally .NET SDK, Java and Pandoc) are installed through Chocolatey, which requires Administrator privileges; pass `--no-bootstrap` to disable that. Requests for an architecture whose toolchain is not installed fail the build, except when ARM64 or ARM64EC is part of the default set, in which case it is skipped with a warning. The script returns a non-zero exit code if any requested build fails.
+
+`--wrapper-tests` is a test-only extra: it compiles the wrapper bindings that do not need a game engine SDK (the GameMaker shim is linked against the real `Tolk` target and run, and the Unity C# binding is compiled with the .NET SDK), and it fails if a binding calls a `Tolk_*` entry point that `Tolk.h` no longer declares. The test targets are never installed and never part of a release package.
 
 ### Output Directory Structure
 
@@ -206,7 +211,12 @@ dist/
 │   ├── java/       # Java wrapper (Tolk.jar)
 │   ├── python/     # Python wrapper (Tolk.py)
 │   ├── autoit/     # AutoIt wrapper (Tolk.au3)
-│   └── purebasic/  # PureBasic wrapper (Tolk.pb)
+│   ├── purebasic/  # PureBasic wrapper (Tolk.pb)
+│   ├── lua/        # Lua / LuaJIT wrapper (Tolk.lua)
+│   ├── java-iodine/  # Iodine Java wrapper
+│   ├── oxygene/    # Oxygene wrapper
+│   ├── swift-silver/ # Silver Swift wrapper
+│   └── game-engines/ # Unity, Unreal, Godot and GameMaker packages
 ├── dotnet/         # Legacy .NET wrapper (backward compatibility)
 ├── java/           # Legacy Java wrapper (backward compatibility)
 ├── docs/           # Documentation

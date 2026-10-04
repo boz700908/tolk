@@ -70,6 +70,20 @@ jobs:
           path: dist/docs
           if-no-files-found: error
 
+  wrappers:
+    name: Wrapper compile checks
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v6
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile and run the wrapper checks (x64 Release)
+        shell: cmd
+        run: build.bat release --x64 --wrapper-tests
+
   package:
     name: Create Release Package
     needs: build

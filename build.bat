@@ -8,7 +8,8 @@ setlocal enabledelayedexpansion
 ::
 ::  Usage:
 ::    build.bat [debug|release|both] [--x86] [--x64] [--arm64] [--arm64ec]
-::              [--clean] [--ci] [--no-bootstrap] [--bootstrap] [--help]
+::              [--clean] [--ci] [--no-bootstrap] [--bootstrap]
+::              [--wrapper-tests] [--help]
 ::
 ::    debug|release|both   configuration to build (default: both)
 ::    --x86/--x64/--arm64/--arm64ec
@@ -17,6 +18,7 @@ setlocal enabledelayedexpansion
 ::    --ci                 force non-interactive CI mode (never installs)
 ::    --no-bootstrap       never install missing build tools
 ::    --bootstrap          install missing tools even in CI mode
+::    --wrapper-tests      also compile the wrapper bindings (test only)
 ::    --help               show this help
 ::
 ::  On CI (GITHUB_ACTIONS, APPVEYOR, TF_BUILD, BUILD_BUILDID, CI=true)
@@ -33,6 +35,7 @@ set "DO_CLEAN=0"
 set "FORCE_CI=0"
 set "NO_BOOTSTRAP=0"
 set "FORCE_BOOTSTRAP=0"
+set "WRAPPER_TESTS=0"
 set "BUILD_X86=0"
 set "BUILD_X64=0"
 set "BUILD_ARM64=0"
@@ -85,6 +88,7 @@ if /i "!ARG!"=="--clean"  (set "DO_CLEAN=1" & set "KNOWN=1")
 if /i "!ARG!"=="--ci"     (set "FORCE_CI=1" & set "KNOWN=1")
 if /i "!ARG!"=="--no-bootstrap" (set "NO_BOOTSTRAP=1" & set "KNOWN=1")
 if /i "!ARG!"=="--bootstrap"    (set "FORCE_BOOTSTRAP=1" & set "KNOWN=1")
+if /i "!ARG!"=="--wrapper-tests" (set "WRAPPER_TESTS=1" & set "KNOWN=1")
 if /i "!ARG!"=="--help" (call :USAGE & exit /b 3)
 if /i "!ARG!"=="-h"     (call :USAGE & exit /b 3)
 if "!KNOWN!"=="0" echo WARNING: ignoring unknown argument "!ARG!"
@@ -95,7 +99,7 @@ goto :PARSE_ARGS
 echo Tolk build script
 echo.
 echo Usage: build.bat [debug^|release^|both] [--x86] [--x64] [--arm64] [--arm64ec]
-echo                  [--clean] [--ci] [--no-bootstrap] [--help]
+echo                  [--clean] [--ci] [--no-bootstrap] [--wrapper-tests] [--help]
 echo.
 echo   debug^|release^|both   configuration to build (default: both)
 echo   --x86/--x64/--arm64/--arm64ec
@@ -104,6 +108,7 @@ echo   --clean              delete build-*/ and dist/ before building
 echo   --ci                 force non-interactive CI mode
 echo   --no-bootstrap       never install missing build tools
 echo   --bootstrap          install missing tools even in CI mode
+echo   --wrapper-tests      compile the wrapper bindings too ^(test only^)
 echo   --help               show this help
 exit /b 0
 
@@ -136,9 +141,13 @@ if "!BUILD_X64!"=="1"   set "ARCH_LIST=!ARCH_LIST! x64"
 if "!BUILD_ARM64!"=="1" set "ARCH_LIST=!ARCH_LIST! arm64"
 if "!BUILD_ARM64EC!"=="1" set "ARCH_LIST=!ARCH_LIST! arm64ec"
 
+:: Wrapper compile checks are test-only, so they are opt-in.
+set "WRAPPER_TESTS_ARG="
+if "%WRAPPER_TESTS%"=="1" set "WRAPPER_TESTS_ARG=-DTOLK_BUILD_WRAPPER_TESTS=ON"
+
 echo ============================================================
 echo  Tolk build
-echo  Configs: !CONFIG_LIST!   Archs:!ARCH_LIST!   CI: !IS_CI!   Clean: !DO_CLEAN!
+echo  Configs: !CONFIG_LIST!   Archs:!ARCH_LIST!   CI: !IS_CI!   Clean: !DO_CLEAN!   WrapperTests: !WRAPPER_TESTS!
 echo ============================================================
 
 if "%DO_CLEAN%"=="1" (
@@ -239,7 +248,7 @@ echo.
 echo ============================================================
 echo  Building %ARCH% %CFG%
 echo ============================================================
-"%CMAKE_EXE%" -B "%BDIR%" -A "%CM_ARCH%"
+"%CMAKE_EXE%" -B "%BDIR%" -A "%CM_ARCH%" !WRAPPER_TESTS_ARG!
 if errorlevel 1 (
   echo ERROR: CMake configuration failed for %ARCH% %CFG%
   set /a FAIL_COUNT+=1
@@ -317,6 +326,24 @@ if defined WSRC (
     )
   )
 )
+
+:: Source-only wrapper layers: shipped as-is, no build step required.
+for %%W in (lua java-iodine oxygene swift-silver) do (
+  if exist "contrib\%%W" (
+    if not exist "dist\wrappers\%%W" mkdir "dist\wrappers\%%W"
+    xcopy /E /I /Y /Q "contrib\%%W\*" "dist\wrappers\%%W\" >nul
+  )
+)
+
+:: Game engine bindings (Unity, Unreal, Godot, GameMaker): source packages.
+if exist "contrib\game-engines" (
+  if not exist "dist\wrappers\game-engines" mkdir "dist\wrappers\game-engines"
+  xcopy /E /I /Y /Q "contrib\game-engines\*" "dist\wrappers\game-engines\" >nul
+  del /q "dist\wrappers\game-engines\godot\addons\tolk\bin\.gitkeep" 2>nul
+)
+
+:: Overview of every wrapper layer in the package.
+if exist "contrib\README.md" copy /Y "contrib\README.md" "dist\wrappers\README.md" >nul
 
 :: .NET wrapper
 set "DLL="
