@@ -35,6 +35,10 @@ namespace DavyKager {
 
     [SuppressUnmanagedCodeSecurity]
     [DllImport("Tolk.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+    private static extern void Tolk_TryZDCloud([MarshalAs(UnmanagedType.I1)] bool tryZDCloud);
+
+    [SuppressUnmanagedCodeSecurity]
+    [DllImport("Tolk.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
     private static extern IntPtr Tolk_DetectScreenReader();
 
     [SuppressUnmanagedCodeSecurity]
@@ -92,6 +96,9 @@ namespace DavyKager {
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void PreferSAPI(bool preferSAPI) => Tolk_PreferSAPI(preferSAPI);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void TryZDCloud(bool tryZDCloud) => Tolk_TryZDCloud(tryZDCloud);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string DetectScreenReader() => Marshal.PtrToStringUni(Tolk_DetectScreenReader());

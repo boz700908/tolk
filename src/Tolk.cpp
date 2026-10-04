@@ -17,6 +17,7 @@
 #include "ScreenReaderDriverSAPI.h"
 #include "ScreenReaderDriverSNova.h"
 #include "ScreenReaderDriverWE.h"
+#include "ScreenReaderDriverZDCloud.h"
 #include "ScreenReaderDriverZDSR.h"
 #include "ScreenReaderDriverZT.h"
 
@@ -28,9 +29,11 @@ static bool g_isLoaded = false;
 static volatile LONG g_lastError = 0;  // Internal error code for debugging
 static std::vector<std::unique_ptr<ScreenReaderDriver>> g_screenReaderDrivers;
 static std::unique_ptr<ScreenReaderDriverSAPI> g_sapi;
+static std::unique_ptr<ScreenReaderDriverZDCloud> g_zdcloud;
 static ScreenReaderDriver *g_currentScreenReaderDriver = nullptr;
 static bool g_trySAPI = true;
 static bool g_preferSAPI = false;
+static bool g_tryZDCloud = false;
 
 // Internal error codes (for debugging only, not exposed in public API)
 enum TolkInternalError {
@@ -75,6 +78,12 @@ static const wchar_t * DetectCurrentScreenReader() {
       g_lastDetectTime = currentTime;
       return g_cachedName;
     }
+  }
+  if (g_tryZDCloud && g_zdcloud && g_zdcloud->IsActive()) {
+    g_currentScreenReaderDriver = g_zdcloud.get();
+    g_cachedName = g_currentScreenReaderDriver->GetName();
+    g_lastDetectTime = currentTime;
+    return g_cachedName;
   }
   if (g_trySAPI && !g_preferSAPI && g_sapi && g_sapi->IsActive()) {
     g_currentScreenReaderDriver = g_sapi.get();
@@ -132,6 +141,10 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Load() {
     // Chinese screen readers (regional market)
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverZDSR>());
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBOY>());
+    if (g_tryZDCloud) {
+      TOLK_LOG_INFO("Initializing ZDCloud cloud speech fallback driver");
+      g_zdcloud = std::make_unique<ScreenReaderDriverZDCloud>();
+    }
     if (g_trySAPI) {
       TOLK_LOG_INFO("Initializing SAPI fallback driver");
       g_sapi = std::make_unique<ScreenReaderDriverSAPI>();
@@ -142,6 +155,7 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Load() {
     TOLK_LOG_ERROR("EXCEPTION during driver initialization!");
     InterlockedExchange(&g_lastError, TOLK_ERR_LOAD_EXCEPTION);
     g_sapi.reset();
+    g_zdcloud.reset();
     g_screenReaderDrivers.clear();
     ReleaseSRWLockExclusive(&g_srwLock);
     return;
@@ -163,6 +177,7 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Unload() {
     g_isLoaded = false;
     g_currentScreenReaderDriver = nullptr;
     g_sapi.reset();
+    g_zdcloud.reset();
     g_screenReaderDrivers.clear();
     g_lastDetectTime = 0;
     g_cachedName = nullptr;
@@ -187,6 +202,24 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_TrySAPI(bool trySAPI) {
       g_sapi = std::make_unique<ScreenReaderDriverSAPI>();
     else if (!g_trySAPI && g_sapi)
       g_sapi.reset();
+    g_currentScreenReaderDriver = nullptr;
+    g_lastDetectTime = 0;
+    g_cachedName = nullptr;
+  }
+  ReleaseSRWLockExclusive(&g_srwLock);
+}
+TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_TryZDCloud(bool tryZDCloud) {
+  AcquireSRWLockExclusive(&g_srwLock);
+  if (g_tryZDCloud == tryZDCloud) {
+    ReleaseSRWLockExclusive(&g_srwLock);
+    return;
+  }
+  g_tryZDCloud = tryZDCloud;
+  if (Tolk_IsLoaded()) {
+    if (g_tryZDCloud && !g_zdcloud)
+      g_zdcloud = std::make_unique<ScreenReaderDriverZDCloud>();
+    else if (!g_tryZDCloud && g_zdcloud)
+      g_zdcloud.reset();
     g_currentScreenReaderDriver = nullptr;
     g_lastDetectTime = 0;
     g_cachedName = nullptr;

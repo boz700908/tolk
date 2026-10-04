@@ -36,6 +36,10 @@ _proto_prefer_sapi = CFUNCTYPE(None, c_bool)
 _param_prefer_sapi = ((1, "prefer_sapi"),)
 prefer_sapi = _proto_prefer_sapi(("Tolk_PreferSAPI", _tolk), _param_prefer_sapi)
 
+_proto_try_zdcloud = CFUNCTYPE(None, c_bool)
+_param_try_zdcloud = ((1, "try_zdcloud"),)
+try_zdcloud = _proto_try_zdcloud(("Tolk_TryZDCloud", _tolk), _param_try_zdcloud)
+
 _proto_detect_screen_reader = CFUNCTYPE(c_wchar_p)
 detect_screen_reader = _proto_detect_screen_reader(("Tolk_DetectScreenReader", _tolk))
 
@@ -67,6 +71,7 @@ silence = _proto_silence(("Tolk_Silence", _tolk))
 __all__ = [
     'load', 'is_loaded', 'unload',
     'try_sapi', 'prefer_sapi',
+    'try_zdcloud',
     'detect_screen_reader',
     'has_speech', 'has_braille',
     'output', 'speak', 'braille',

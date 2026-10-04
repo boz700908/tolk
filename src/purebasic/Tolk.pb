@@ -12,6 +12,7 @@ DeclareModule Tolk
   Declare Unload()
   Declare TrySAPI(trySAPI.a)
   Declare PreferSAPI(preferSAPI.a)
+  Declare TryZDCloud(tryZDCloud.a)
   Declare.s DetectScreenReader()
   Declare.a HasSpeech()
   Declare.a HasBraille()
@@ -29,6 +30,7 @@ Module Tolk
     Tolk_Unload()
     Tolk_TrySAPI(trySAPI.a)
     Tolk_PreferSAPI(preferSAPI.a)
+    Tolk_TryZDCloud(tryZDCloud.a)
     Tolk_DetectScreenReader()
     Tolk_HasSpeech.a()
     Tolk_HasBraille.a()
@@ -57,6 +59,10 @@ Module Tolk
 
   Procedure PreferSAPI(preferSAPI.a)
     Tolk_PreferSAPI(preferSAPI)
+  EndProcedure
+
+  Procedure TryZDCloud(tryZDCloud.a)
+    Tolk_TryZDCloud(tryZDCloud)
   EndProcedure
 
   Procedure.s DetectScreenReader()

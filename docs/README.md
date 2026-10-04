@@ -64,6 +64,10 @@ SAPI is initially put at the end of the auto-detection chain. This is good for u
 
 The most efficient way of enabling SAPI support is to set it up before calling `Tolk_Load`. However, you can also call these functions after Tolk has already been loaded. This will trigger the screen reader detection process and is therefore slightly less efficient.
 
+### Using ZDCloud
+
+Tolk can also output text through ZDCloud (之多云), a cloud speech backend. Like SAPI, this is meant as a fallback and is disabled by default. To enable it, call `Tolk_TryZDCloud(true)`; pass `false` to disable it again. When enabled, ZDCloud is placed after the screen reader drivers and before SAPI in the auto-detection chain. ZDCloud is a 32-bit-only backend, so it is unavailable in x64 and ARM64 builds.
+
 ### Wrappers
 
 Wrappers around `Tolk.dll` have been added for some languages to make things easier:
@@ -94,11 +98,13 @@ The following table lists the supported screen readers in the order in which the
 | ZoomText      | Yes    | No      | Yes    | Yes | Yes | No       |
 | ZDSR          | Yes    | Yes     | Yes    | Yes | Yes | No       |
 | BoyPCReader   | Yes    | No      | Yes    | Yes | Yes | No       |
+| ZDCloud (之多云) | Yes    | No      | Yes    | Yes | No  | No       |
 | SAPI          | Yes    | No      | Yes    | Yes | Yes | Partial* |
 
 ### Notes
 
 * All screen readers that do not support ARM64 will run via x64 emulation.
+* ZDCloud (之多云) is a cloud speech backend rather than a screen reader, so it is not auto-detected unless it is explicitly enabled with `Tolk_TryZDCloud(true)`. It is a 32-bit-only backend and is unavailable in x64 and ARM64 builds.
 * NVDA speech-state queries (`Tolk_IsSpeaking`) require NVDA 2026.3 or later, which introduced `nvdaController_isSpeaking`. On older versions `Tolk_IsSpeaking` returns `false`.
 * SuperNova is the only screen reader that does not have a 64-bit compatible API.
 * SuperNova has support for braille, but the API does not let you use it.

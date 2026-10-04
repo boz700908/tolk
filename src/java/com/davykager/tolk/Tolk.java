@@ -14,6 +14,7 @@ public final class Tolk {
     public static final native void unload();
     public static final native void trySAPI(boolean trySAPI);
     public static final native void preferSAPI(boolean preferSAPI);
+    public static final native void tryZDCloud(boolean tryZDCloud);
     public static final native String detectScreenReader();
     public static final native boolean hasSpeech();
     public static final native boolean hasBraille();

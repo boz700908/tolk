@@ -64,6 +64,14 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_TrySAPI(bool trySAPI);
 TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_PreferSAPI(bool preferSAPI);
 
 /**
+ *  Name:         Tolk_TryZDCloud
+ *  Description:  Sets if the ZDCloud cloud speech backend should be included in the screen reader auto-detection process as a fallback. The default is not to include ZDCloud. ZDCloud is a 32-bit-only backend, so this setting has no effect in 64-bit and ARM64 builds. This function triggers the screen reader detection process if needed. For best performance, you should call this function before calling Tolk_Load.
+ *  Parameters:   tryZDCloud: whether or not to include ZDCloud in auto-detection.
+ *  Returns:      None.
+ */
+TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_TryZDCloud(bool tryZDCloud);
+
+/**
  *  Name:         Tolk_DetectScreenReader
  *  Description:  Returns the common name for the currently active screen reader driver, if one is set. If none is set, tries to detect the currently active screen reader before looking up the name. If no screen reader is active, NULL is returned. Note that the drivers hard-code the common name, it is not requested from the screen reader itself. You should call Tolk_Load once before using this function.
  *  Parameters:   None.

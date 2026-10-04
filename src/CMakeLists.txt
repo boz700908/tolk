@@ -7,6 +7,7 @@ set(TOLK_SOURCES
   ScreenReaderDriverSAPI.cpp
   ScreenReaderDriverSNova.cpp
   ScreenReaderDriverWE.cpp
+  ScreenReaderDriverZDCloud.cpp
   ScreenReaderDriverZDSR.cpp
   ScreenReaderDriverZT.cpp
   fsapi.c
@@ -25,6 +26,7 @@ set(TOLK_HEADERS
   ScreenReaderDriverSAPI.h
   ScreenReaderDriverSNova.h
   ScreenReaderDriverWE.h
+  ScreenReaderDriverZDCloud.h
   ScreenReaderDriverZDSR.h
   ScreenReaderDriverZT.h
   fsapi.h

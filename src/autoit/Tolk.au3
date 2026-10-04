@@ -41,6 +41,12 @@ Func Tolk_PreferSAPI($preferSAPI)
   EndIf
 EndFunc
 
+Func Tolk_TryZDCloud($tryZDCloud)
+  If $tolk <> -1 Then
+    DllCall($tolk, "NONE:cdecl", "Tolk_TryZDCloud", "BOOLEAN", $tryZDCloud)
+  EndIf
+EndFunc
+
 Func Tolk_DetectScreenReader()
   If $tolk <> -1 Then
     Local $name = DllCall($tolk, "WSTR:cdecl", "Tolk_DetectScreenReader")[0]
