@@ -28,6 +28,10 @@ jobs:
             config: Release
           - arch: arm64
             config: Debug
+          - arch: arm64ec
+            config: Release
+          - arch: arm64ec
+            config: Debug
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v6
@@ -86,12 +90,16 @@ jobs:
           mkdir dist\x64\Release
           mkdir dist\arm64\Debug
           mkdir dist\arm64\Release
+          mkdir dist\arm64ec\Debug
+          mkdir dist\arm64ec\Release
           xcopy /E /I /Y artifacts\tolk-x86-Debug\* dist\x86\Debug\
           xcopy /E /I /Y artifacts\tolk-x86-Release\* dist\x86\Release\
           xcopy /E /I /Y artifacts\tolk-x64-Debug\* dist\x64\Debug\
           xcopy /E /I /Y artifacts\tolk-x64-Release\* dist\x64\Release\
           xcopy /E /I /Y artifacts\tolk-arm64-Debug\* dist\arm64\Debug\
           xcopy /E /I /Y artifacts\tolk-arm64-Release\* dist\arm64\Release\
+          xcopy /E /I /Y artifacts\tolk-arm64ec-Debug\* dist\arm64ec\Debug\
+          xcopy /E /I /Y artifacts\tolk-arm64ec-Release\* dist\arm64ec\Release\
           :: Language wrappers — shared common directory (identical for every architecture)
           mkdir dist\wrappers
           xcopy /E /I /Y artifacts\tolk-wrappers\* dist\wrappers\

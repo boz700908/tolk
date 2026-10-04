@@ -29,11 +29,6 @@ private:
   typedef void (__stdcall *ZDCloud_Void)();
   static std::wstring DecodeSecret(const unsigned char *bytes, size_t size, unsigned char key);
   bool Initialize();
-#if defined(_M_X64)
-  bool StartBridge();
-  bool CallBridge(unsigned long command, unsigned long argument, const wchar_t *text, int *result);
-  void StopBridge();
-#endif
 private:
   HMODULE controller;
   ZDCloud_Initial initial;
@@ -42,10 +37,5 @@ private:
   ZDCloud_Void stopSpeak;
   ZDCloud_Void uninitial;
   bool initialized;
-#if defined(_M_X64)
-  HANDLE bridgePipe;
-  HANDLE bridgeProcess;
-  int bridgeState;  // 0 = not started, 1 = ready, -1 = failed
-#endif
 };
 #endif // _SCREEN_READER_DRIVER_ZDCLOUD_H_

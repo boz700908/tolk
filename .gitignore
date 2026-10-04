@@ -3,6 +3,7 @@
 /build-x86/
 /build-x64/
 /build-arm64/
+/build-arm64ec/
 /dist/
 
 # CMake generated files

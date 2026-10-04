@@ -1,5 +1,6 @@
 set(TOLK_SOURCES
   Tolk.cpp
+  TolkBridge.cpp
   ScreenReaderDriverBOY.cpp
   ScreenReaderDriverJAWS.cpp
   ScreenReaderDriverNVDA.cpp
@@ -18,7 +19,9 @@ set(TOLK_HEADERS
   Tolk.h
   TolkVersion.h
   TolkDebug.h
+  TolkBridge.h
   ScreenReaderDriver.h
+  ScreenReaderDriverBridged.h
   ScreenReaderDriverBOY.h
   ScreenReaderDriverJAWS.h
   ScreenReaderDriverNVDA.h
@@ -75,42 +78,77 @@ if(MSVC)
     $<$<CONFIG:Release>:/LTCG>
   )
 endif()
-# --- ZDCloud 32-bit bridge for 64-bit builds ---
-# A 64-bit process cannot load the 32-bit ZDCloudAPI.dll. A small 32-bit bridge
-# is therefore built separately (forced to Win32) and embedded, together with
-# ZDCloudAPI.dll, into Tolk.dll as resources. At run time they are extracted to
-# a per-user cache directory, so no extra files are shipped next to Tolk.dll.
-if(TOLK_ARCH STREQUAL "x64" AND CMAKE_GENERATOR MATCHES "Visual Studio")
+# --- Cross-architecture bridge for backends without a module for this arch ---
+# Some backends only ship a DLL for another architecture: SuperNova and ZDCloud
+# are 32-bit only, while System Access, ZDSR and BoyPCReader ship 32-bit and
+# 64-bit builds but no ARM64 build. A build that cannot load such a module
+# in-process drives it through a small helper process of the matching
+# architecture. The helper image and the modules it loads are embedded into
+# Tolk.dll as resources and extracted to a per-user cache directory at run
+# time, so no extra file is shipped next to Tolk.dll. Keep the resource ids and
+# file names in sync with the payload tables in src/TolkBridge.cpp.
+if(CMAKE_GENERATOR MATCHES "Visual Studio")
   include(ExternalProject)
-  set(TOLK_ZDCLOUD_BRIDGE_DIR "${CMAKE_BINARY_DIR}/zdcloud_bridge32")
-  set(TOLK_ZDCLOUD_BRIDGE_EXE "${TOLK_ZDCLOUD_BRIDGE_DIR}/TolkZDCloudBridge32.exe")
-  set(TOLK_ZDCLOUD_API_DLL "${CMAKE_SOURCE_DIR}/libs/x86/ZDCloudAPI.dll")
-  set(TOLK_ZDCLOUD_BRIDGE_ARGS
-    CMAKE_GENERATOR "${CMAKE_GENERATOR}"
-    CMAKE_GENERATOR_PLATFORM "Win32"
-  )
+  set(TOLK_BRIDGE_RC_CONTENT "")
+  set(TOLK_BRIDGE_DEPENDS "")
   if(CMAKE_GENERATOR_TOOLSET)
-    list(APPEND TOLK_ZDCLOUD_BRIDGE_ARGS CMAKE_GENERATOR_TOOLSET "${CMAKE_GENERATOR_TOOLSET}")
+    set(TOLK_BRIDGE_TOOLSET_ARGS CMAKE_GENERATOR_TOOLSET "${CMAKE_GENERATOR_TOOLSET}")
+  else()
+    set(TOLK_BRIDGE_TOOLSET_ARGS "")
   endif()
-  ExternalProject_Add(tolk_zdcloud_bridge32
-    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/zdcloud_bridge32"
-    BINARY_DIR "${TOLK_ZDCLOUD_BRIDGE_DIR}"
-    ${TOLK_ZDCLOUD_BRIDGE_ARGS}
-    BUILD_COMMAND "${CMAKE_COMMAND}" --build "${TOLK_ZDCLOUD_BRIDGE_DIR}" --config Release
-    INSTALL_COMMAND ""
-    BUILD_BYPRODUCTS "${TOLK_ZDCLOUD_BRIDGE_EXE}"
-  )
-  add_dependencies(Tolk tolk_zdcloud_bridge32)
-  file(TO_NATIVE_PATH "${TOLK_ZDCLOUD_BRIDGE_EXE}" TOLK_ZDCLOUD_BRIDGE_EXE_NATIVE)
-  file(TO_NATIVE_PATH "${TOLK_ZDCLOUD_API_DLL}" TOLK_ZDCLOUD_API_DLL_NATIVE)
   # rc.exe treats backslashes as escape characters, so double them.
-  string(REPLACE "\\" "\\\\" TOLK_ZDCLOUD_BRIDGE_EXE_NATIVE "${TOLK_ZDCLOUD_BRIDGE_EXE_NATIVE}")
-  string(REPLACE "\\" "\\\\" TOLK_ZDCLOUD_API_DLL_NATIVE "${TOLK_ZDCLOUD_API_DLL_NATIVE}")
-  set(TOLK_ZDCLOUD_RC "${CMAKE_BINARY_DIR}/zdcloud_resources.rc")
-  file(WRITE "${TOLK_ZDCLOUD_RC}"
-    "101 RCDATA \"${TOLK_ZDCLOUD_BRIDGE_EXE_NATIVE}\"\n"
-    "102 RCDATA \"${TOLK_ZDCLOUD_API_DLL_NATIVE}\"\n")
-  target_sources(Tolk PRIVATE "${TOLK_ZDCLOUD_RC}")
+  macro(tolk_bridge_embed_file id path)
+    file(TO_NATIVE_PATH "${path}" TOLK_BRIDGE_NATIVE_PATH)
+    string(REPLACE "\\" "\\\\" TOLK_BRIDGE_NATIVE_PATH "${TOLK_BRIDGE_NATIVE_PATH}")
+    string(APPEND TOLK_BRIDGE_RC_CONTENT "${id} RCDATA \"${TOLK_BRIDGE_NATIVE_PATH}\"\n")
+  endmacro()
+  # 32-bit helper: used by x64, ARM64EC and ARM64 builds.
+  if(TOLK_ARCH STREQUAL "x64" OR TOLK_ARCH STREQUAL "arm64ec" OR TOLK_ARCH STREQUAL "arm64")
+    set(TOLK_BRIDGE_X86_DIR "${CMAKE_BINARY_DIR}/bridge-x86")
+    set(TOLK_BRIDGE_X86_EXE "${TOLK_BRIDGE_X86_DIR}/TolkBridge.exe")
+    ExternalProject_Add(tolk_bridge_x86
+      SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/bridge"
+      BINARY_DIR "${TOLK_BRIDGE_X86_DIR}"
+      CMAKE_GENERATOR "${CMAKE_GENERATOR}"
+      CMAKE_GENERATOR_PLATFORM "Win32"
+      ${TOLK_BRIDGE_TOOLSET_ARGS}
+      BUILD_COMMAND "${CMAKE_COMMAND}" --build "${TOLK_BRIDGE_X86_DIR}" --config Release
+      INSTALL_COMMAND ""
+      BUILD_BYPRODUCTS "${TOLK_BRIDGE_X86_EXE}"
+    )
+    tolk_bridge_embed_file(101 "${TOLK_BRIDGE_X86_EXE}")
+    list(APPEND TOLK_BRIDGE_DEPENDS tolk_bridge_x86)
+    tolk_bridge_embed_file(250 "${CMAKE_SOURCE_DIR}/libs/x86/dolapi32.dll")
+    tolk_bridge_embed_file(280 "${CMAKE_SOURCE_DIR}/libs/x86/ZDCloudAPI.dll")
+  endif()
+  # 64-bit helper: used by ARM64 builds, which cannot load x64 modules.
+  if(TOLK_ARCH STREQUAL "arm64")
+    set(TOLK_BRIDGE_X64_DIR "${CMAKE_BINARY_DIR}/bridge-x64")
+    set(TOLK_BRIDGE_X64_EXE "${TOLK_BRIDGE_X64_DIR}/TolkBridge.exe")
+    ExternalProject_Add(tolk_bridge_x64
+      SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/bridge"
+      BINARY_DIR "${TOLK_BRIDGE_X64_DIR}"
+      CMAKE_GENERATOR "${CMAKE_GENERATOR}"
+      CMAKE_GENERATOR_PLATFORM "x64"
+      ${TOLK_BRIDGE_TOOLSET_ARGS}
+      BUILD_COMMAND "${CMAKE_COMMAND}" --build "${TOLK_BRIDGE_X64_DIR}" --config Release
+      INSTALL_COMMAND ""
+      BUILD_BYPRODUCTS "${TOLK_BRIDGE_X64_EXE}"
+    )
+    tolk_bridge_embed_file(102 "${TOLK_BRIDGE_X64_EXE}")
+    list(APPEND TOLK_BRIDGE_DEPENDS tolk_bridge_x64)
+    tolk_bridge_embed_file(241 "${CMAKE_SOURCE_DIR}/libs/x64/SAAPI64.dll")
+    tolk_bridge_embed_file(261 "${CMAKE_SOURCE_DIR}/libs/x64/ZDSRAPI_x64.dll")
+    tolk_bridge_embed_file(266 "${CMAKE_SOURCE_DIR}/libs/x64/ZDSRAPI.ini")
+    tolk_bridge_embed_file(271 "${CMAKE_SOURCE_DIR}/libs/x64/byctrl-x64.dll")
+    tolk_bridge_embed_file(276 "${CMAKE_SOURCE_DIR}/libs/x64/byctrl.conf")
+  endif()
+  if(TOLK_BRIDGE_RC_CONTENT)
+    set(TOLK_BRIDGE_RC "${CMAKE_BINARY_DIR}/tolk_bridge_resources.rc")
+    file(WRITE "${TOLK_BRIDGE_RC}" "${TOLK_BRIDGE_RC_CONTENT}")
+    target_sources(Tolk PRIVATE "${TOLK_BRIDGE_RC}")
+    add_dependencies(Tolk ${TOLK_BRIDGE_DEPENDS})
+  endif()
 endif()
 # Install rules
 install(TARGETS Tolk

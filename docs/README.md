@@ -66,7 +66,20 @@ The most efficient way of enabling SAPI support is to set it up before calling `
 
 ### Using ZDCloud
 
-Tolk can also output text through ZDCloud (之多云), a cloud speech backend. It is enabled by default and placed after the screen reader drivers and before SAPI in the auto-detection chain, so it is used as a fallback when none of the supported screen readers is active. ZDCloud is a 32-bit-only backend and is unavailable in x64 and ARM64 builds.
+Tolk can also output text through ZDCloud (之多云), a cloud speech backend. It is enabled by default and placed after the screen reader drivers and before SAPI in the auto-detection chain, so it is used as a fallback when none of the supported screen readers is active.
+
+ZDCloud only ships a 32-bit module. On x64, ARM64 and ARM64EC builds Tolk therefore hosts it in a small embedded 32-bit helper process and talks to it over a named pipe (see `Cross-architecture support`).
+
+### Cross-architecture support
+
+Tolk is built for x86, x64, ARM64 and ARM64EC. A backend that has no module for the build's architecture is driven through an embedded helper process of an architecture that does have it, so every backend can be used from every build:
+
+* x86 builds load every backend directly and embed no helper.
+* x64 and ARM64EC builds run the 32-bit-only backends (SuperNova, ZDCloud) in an embedded 32-bit helper. An ARM64EC process loads x64 modules in-process, so no 64-bit helper is needed there.
+* ARM64 builds run the 32-bit-only backends in an embedded 32-bit helper and the 64-bit backends (JAWS, Window-Eyes, System Access, ZDSR, BoyPCReader) in an embedded 64-bit helper. Windows 11 on ARM runs those helpers through its x86 and x64 emulation.
+* NVDA is native on x86, x64 and ARM64. On ARM64EC it uses the x64 client, because a pure ARM64 module cannot be loaded into an ARM64EC process.
+
+The helper is never shipped as a separate file. Its image and every module it loads are stored as resources inside `Tolk.dll` and extracted to `%LOCALAPPDATA%\Tolk\Bridge\<arch>` on first use, so nothing has to be deployed next to `Tolk.dll`.
 
 ### Wrappers
 
@@ -88,23 +101,24 @@ Take a look at the `examples` directory to get started. This directory contains 
 
 The following table lists the supported screen readers in the order in which they are auto-detected.
 
-| Screen Reader | Speech | Braille | Status | x86 | x64 | ARM64    |
-|---------------|--------|---------|--------|-----|-----|----------|
-| NVDA          | Yes    | Yes     | Yes    | Yes | Yes | Yes      |
-| JAWS          | Yes    | Yes     | No     | Yes | Yes | No       |
-| Window-Eyes   | Yes    | Yes     | No     | Yes | Yes | No       |
-| System Access | Yes    | Yes     | No     | Yes | Yes | No       |
-| SuperNova     | Yes    | No      | No     | Yes | No  | No       |
-| ZoomText      | Yes    | No      | Yes    | Yes | Yes | No       |
-| ZDSR          | Yes    | Yes     | Yes    | Yes | Yes | No       |
-| BoyPCReader   | Yes    | No      | Yes    | Yes | Yes | No       |
-| ZDCloud (之多云) | Yes    | No      | Yes    | Yes | No  | No       |
-| SAPI          | Yes    | No      | Yes    | Yes | Yes | Partial* |
+| Screen Reader | Speech | Braille | Status | x86 | x64 | ARM64 | ARM64EC |
+|---------------|--------|---------|--------|-----|-----|-------|---------|
+| NVDA          | Yes    | Yes     | Yes    | Yes | Yes | Yes   | Yes     |
+| JAWS          | Yes    | Yes     | No     | Yes | Yes | Yes   | Yes     |
+| Window-Eyes   | Yes    | Yes     | No     | Yes | Yes | Yes   | Yes     |
+| System Access | Yes    | Yes     | No     | Yes | Yes | Yes   | Yes     |
+| SuperNova     | Yes    | No      | No     | Yes | Yes | Yes   | Yes     |
+| ZoomText      | Yes    | No      | Yes    | Yes | Yes | Yes   | Yes     |
+| ZDSR          | Yes    | Yes     | Yes    | Yes | Yes | Yes   | Yes     |
+| BoyPCReader   | Yes    | No      | Yes    | Yes | Yes | Yes   | Yes     |
+| ZDCloud (之多云) | Yes    | No      | Yes    | Yes | Yes | Yes   | Yes     |
+| SAPI          | Yes    | No      | Yes    | Yes | Yes | Partial* | Partial* |
 
 ### Notes
 
-* All screen readers that do not support ARM64 will run via x64 emulation.
-* ZDCloud (之多云) is a cloud speech backend rather than a screen reader. It is tried after the screen reader drivers and before SAPI. It is a 32-bit-only backend and is unavailable in x64 and ARM64 builds.
+* A backend without a module for the current architecture runs through an embedded helper process of the architecture that has one; see `Cross-architecture support`. This is transparent to the caller.
+* On ARM64, Windows 11 x86 and x64 emulation is required for the backends that have no ARM64 module.
+* ZDCloud (之多云) is a cloud speech backend rather than a screen reader. It is tried after the screen reader drivers and before SAPI.
 * NVDA speech-state queries (`Tolk_IsSpeaking`) require NVDA 2026.3 or later, which introduced `nvdaController_isSpeaking`. On older versions `Tolk_IsSpeaking` returns `false`.
 * SuperNova is the only screen reader that does not have a 64-bit compatible API.
 * SuperNova has support for braille, but the API does not let you use it.
@@ -129,14 +143,15 @@ The root directory and `examples` directories contain various batch files as a s
 ### Build Script Usage
 
 ```cmd
-build.bat                        # Build both Debug and Release (x86 + x64 + ARM64)
-build.bat debug                  # Build Debug only (x86 + x64 + ARM64)
+build.bat                        # Build both Debug and Release (all architectures)
+build.bat debug                  # Build Debug only (all architectures)
 build.bat release --x64          # Build Release only, for x64
 build.bat both --x86 --x64       # Build Debug and Release for x86 and x64
+build.bat release --arm64ec      # Build Release only, for ARM64EC
 build.bat release --clean        # Remove build-*/ and dist/ before building
 ```
 
-`build.bat` is also the entry point used by CI. It runs in non-interactive CI mode automatically when `GITHUB_ACTIONS`, `APPVEYOR`, `TF_BUILD` or `CI` is set: tool installation is skipped and the build always starts clean. On a local machine, missing build tools (CMake, Visual Studio Build Tools, and optionally .NET SDK, Java and Pandoc) are installed through Chocolatey, which requires Administrator privileges; pass `--no-bootstrap` to disable that. Requests for an architecture whose toolchain is not installed fail the build, except when ARM64 is part of the default set, in which case it is skipped with a warning. The script returns a non-zero exit code if any requested build fails.
+`build.bat` is also the entry point used by CI. It runs in non-interactive CI mode automatically when `GITHUB_ACTIONS`, `APPVEYOR`, `TF_BUILD` or `CI` is set: tool installation is skipped and the build always starts clean. On a local machine, missing build tools (CMake, Visual Studio Build Tools, and optionally .NET SDK, Java and Pandoc) are installed through Chocolatey, which requires Administrator privileges; pass `--no-bootstrap` to disable that. Requests for an architecture whose toolchain is not installed fail the build, except when ARM64 or ARM64EC is part of the default set, in which case it is skipped with a warning. The script returns a non-zero exit code if any requested build fails.
 
 ### Output Directory Structure
 
@@ -149,8 +164,11 @@ dist/
 │   ├── Debug/      # 64-bit x64 Debug build
 │   └── Release/    # 64-bit x64 Release build
 ├── arm64/
-│   ├── Debug/      # ARM64 Debug build (NVDA only)
-│   └── Release/    # ARM64 Release build (NVDA only)
+│   ├── Debug/      # ARM64 Debug build (NVDA native, other backends via the bridge)
+│   └── Release/    # ARM64 Release build
+├── arm64ec/
+│   ├── Debug/      # ARM64EC Debug build (x64 modules in-process, 32-bit backends via the bridge)
+│   └── Release/    # ARM64EC Release build
 ├── wrappers/       # Shared language wrappers (all architectures)
 │   ├── dotnet/     # .NET wrapper (TolkDotNet.dll)
 │   ├── java/       # Java wrapper (Tolk.jar)

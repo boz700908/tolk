@@ -11,6 +11,7 @@
 #include "Tolk.h"
 #include "TolkDebug.h"
 #include "ScreenReaderDriverBOY.h"
+#include "ScreenReaderDriverBridged.h"
 #include "ScreenReaderDriverJAWS.h"
 #include "ScreenReaderDriverNVDA.h"
 #include "ScreenReaderDriverSA.h"
@@ -121,22 +122,39 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Load() {
     TOLK_LOG_INFO("Initializing screen reader drivers...");
     // Priority order: most popular screen readers first (global market share)
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverNVDA>());
+#if TOLK_CAN_LOAD_X86 || TOLK_CAN_LOAD_X64
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverJAWS>());
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverWE>());
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverSA>());
-#ifndef _WIN64
+#else
+    // These backends are COM servers with no ARM64 build, so a 64-bit helper
+    // process hosts them on ARM64.
+    TOLK_LOG_INFO("JAWS/Window-Eyes/System Access: using the 64-bit bridge helper");
+    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"JAWS", true, true, TolkBridgeBackendJAWS));
+    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"Window-Eyes", true, true, TolkBridgeBackendWE));
+    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"System Access", true, true, TolkBridgeBackendSA));
+#endif
+#if TOLK_CAN_LOAD_X86
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverSNova>());
 #else
-    TOLK_LOG_INFO("SuperNova driver skipped (64-bit not supported)");
+    TOLK_LOG_INFO("SuperNova: using the 32-bit bridge helper");
+    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"SuperNova", true, false, TolkBridgeBackendSNova));
 #endif
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverZT>());
     // Chinese screen readers (regional market)
+#if TOLK_CAN_LOAD_X86 || TOLK_CAN_LOAD_X64
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverZDSR>());
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBOY>());
-#if defined(_M_X64) || !defined(_WIN64)
+#else
+    TOLK_LOG_INFO("ZDSR/BoyPCReader: using the 64-bit bridge helper");
+    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"ZDSR", true, true, TolkBridgeBackendZDSR));
+    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"BoyPCReader", true, false, TolkBridgeBackendBOY));
+#endif
+#if TOLK_CAN_LOAD_X86
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverZDCloud>());
 #else
-    TOLK_LOG_INFO("ZDCloud driver skipped (32-bit backend unavailable on this architecture)");
+    TOLK_LOG_INFO("ZDCloud: using the 32-bit bridge helper");
+    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"ZDCloud", true, false, TolkBridgeBackendZDCloud));
 #endif
     if (g_trySAPI) {
       TOLK_LOG_INFO("Initializing SAPI fallback driver");

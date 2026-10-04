@@ -7,11 +7,12 @@ setlocal enabledelayedexpansion
 ::  ARM64, in Debug and/or Release configuration.
 ::
 ::  Usage:
-::    build.bat [debug|release|both] [--x86] [--x64] [--arm64]
+::    build.bat [debug|release|both] [--x86] [--x64] [--arm64] [--arm64ec]
 ::              [--clean] [--ci] [--no-bootstrap] [--bootstrap] [--help]
 ::
 ::    debug|release|both   configuration to build (default: both)
-::    --x86/--x64/--arm64  limit the build to the given architecture(s)
+::    --x86/--x64/--arm64/--arm64ec
+::                         limit the build to the given architecture(s)
 ::    --clean              delete build-*/ and dist/ before building
 ::    --ci                 force non-interactive CI mode (never installs)
 ::    --no-bootstrap       never install missing build tools
@@ -35,7 +36,9 @@ set "FORCE_BOOTSTRAP=0"
 set "BUILD_X86=0"
 set "BUILD_X64=0"
 set "BUILD_ARM64=0"
+set "BUILD_ARM64EC=0"
 set "ARM64_REQ=0"
+set "ARM64EC_REQ=0"
 set "ARCH_SPECIFIED=0"
 set "FAIL_COUNT=0"
 set "OK_COUNT=0"
@@ -77,6 +80,7 @@ if /i "!ARG!"=="--both"    (set "CONFIG=Both" & set "KNOWN=1")
 if /i "!ARG!"=="--x86"    (set "ARCH_SPECIFIED=1" & set "BUILD_X86=1" & set "KNOWN=1")
 if /i "!ARG!"=="--x64"    (set "ARCH_SPECIFIED=1" & set "BUILD_X64=1" & set "KNOWN=1")
 if /i "!ARG!"=="--arm64"  (set "ARCH_SPECIFIED=1" & set "BUILD_ARM64=1" & set "ARM64_REQ=1" & set "KNOWN=1")
+if /i "!ARG!"=="--arm64ec" (set "ARCH_SPECIFIED=1" & set "BUILD_ARM64EC=1" & set "ARM64EC_REQ=1" & set "KNOWN=1")
 if /i "!ARG!"=="--clean"  (set "DO_CLEAN=1" & set "KNOWN=1")
 if /i "!ARG!"=="--ci"     (set "FORCE_CI=1" & set "KNOWN=1")
 if /i "!ARG!"=="--no-bootstrap" (set "NO_BOOTSTRAP=1" & set "KNOWN=1")
@@ -90,11 +94,12 @@ goto :PARSE_ARGS
 :USAGE
 echo Tolk build script
 echo.
-echo Usage: build.bat [debug^|release^|both] [--x86] [--x64] [--arm64]
+echo Usage: build.bat [debug^|release^|both] [--x86] [--x64] [--arm64] [--arm64ec]
 echo                  [--clean] [--ci] [--no-bootstrap] [--help]
 echo.
 echo   debug^|release^|both   configuration to build (default: both)
-echo   --x86/--x64/--arm64  limit the build to the given architecture^(s^)
+echo   --x86/--x64/--arm64/--arm64ec
+echo                        limit the build to the given architecture^(s^)
 echo   --clean              delete build-*/ and dist/ before building
 echo   --ci                 force non-interactive CI mode
 echo   --no-bootstrap       never install missing build tools
@@ -122,12 +127,14 @@ if "%ARCH_SPECIFIED%"=="0" (
   set "BUILD_X86=1"
   set "BUILD_X64=1"
   set "BUILD_ARM64=1"
+  set "BUILD_ARM64EC=1"
 )
 
 set "ARCH_LIST="
 if "!BUILD_X86!"=="1"   set "ARCH_LIST=!ARCH_LIST! x86"
 if "!BUILD_X64!"=="1"   set "ARCH_LIST=!ARCH_LIST! x64"
 if "!BUILD_ARM64!"=="1" set "ARCH_LIST=!ARCH_LIST! arm64"
+if "!BUILD_ARM64EC!"=="1" set "ARCH_LIST=!ARCH_LIST! arm64ec"
 
 echo ============================================================
 echo  Tolk build
@@ -136,7 +143,7 @@ echo ============================================================
 
 if "%DO_CLEAN%"=="1" (
   echo [Clean] Removing previous build output...
-  for %%D in (build-x86 build-x64 build-arm64 dist) do (
+  for %%D in (build-x86 build-x64 build-arm64 build-arm64ec dist) do (
     if exist "%%D" rmdir /s /q "%%D"
   )
 )
@@ -154,6 +161,17 @@ if "!BUILD_ARM64!"=="1" if "!VS_FOUND!"=="1" if not "!VS_ARM64!"=="1" (
   echo WARNING: ARM64 C++ build tools are not installed, skipping ARM64.
   echo          Install "MSVC v143 - VS 2022 C++ ARM64 build tools" to enable it.
   set "BUILD_ARM64=0"
+)
+
+:: ARM64EC is optional as well: skip it when the toolchain is not installed
+if "!BUILD_ARM64EC!"=="1" if "!VS_FOUND!"=="1" if not "!VS_ARM64EC!"=="1" (
+  if "!ARM64EC_REQ!"=="1" (
+    echo ERROR: ARM64EC was requested but the ARM64EC C++ build tools are not installed.
+    exit /b 1
+  )
+  echo WARNING: ARM64EC C++ build tools are not installed, skipping ARM64EC.
+  echo          Install "MSVC v143 - VS 2022 C++ ARM64EC build tools" to enable it.
+  set "BUILD_ARM64EC=0"
 )
 
 :: Bootstrap missing required tools (local builds only)
@@ -207,6 +225,7 @@ for %%C in (%CONFIG_LIST%) do (
   if "!BUILD_X86!"=="1"   call :BUILD_ONE x86 Win32 %%C
   if "!BUILD_X64!"=="1"   call :BUILD_ONE x64 x64 %%C
   if "!BUILD_ARM64!"=="1" call :BUILD_ONE arm64 ARM64 %%C
+  if "!BUILD_ARM64EC!"=="1" call :BUILD_ONE arm64ec ARM64EC %%C
 )
 if !FAIL_COUNT! gtr 0 exit /b 1
 exit /b 0
@@ -244,6 +263,7 @@ for %%C in (%CONFIG_LIST%) do (
   if "!BUILD_X86!"=="1"   call :COPY_ARCH x86 %%C
   if "!BUILD_X64!"=="1"   call :COPY_ARCH x64 %%C
   if "!BUILD_ARM64!"=="1" call :COPY_ARCH arm64 %%C
+  if "!BUILD_ARM64EC!"=="1" call :COPY_ARCH arm64ec %%C
 )
 call :COPY_SHARED
 call :COPY_LICENSES
@@ -278,7 +298,7 @@ exit /b 0
 :COPY_SHARED
 set "WSRC="
 for %%C in (Release Debug) do (
-  for %%A in (x64 x86 arm64) do (
+  for %%A in (x64 x86 arm64 arm64ec) do (
     if not defined WSRC if exist "dist\%%A\%%C\python\Tolk.py" set "WSRC=dist\%%A\%%C"
   )
 )
@@ -289,7 +309,7 @@ if defined WSRC (
       xcopy /E /I /Y /Q "!WSRC!\%%W\*" "dist\wrappers\%%W\" >nul
     )
   )
-  for %%A in (x86 x64 arm64) do (
+  for %%A in (x86 x64 arm64 arm64ec) do (
     for %%D in (Debug Release) do (
       for %%W in (python autoit purebasic) do (
         if exist "dist\%%A\%%D\%%W" rmdir /s /q "dist\%%A\%%D\%%W"
@@ -301,7 +321,7 @@ if defined WSRC (
 :: .NET wrapper
 set "DLL="
 for %%C in (Release Debug) do (
-  for %%A in (x64 x86 arm64) do (
+  for %%A in (x64 x86 arm64 arm64ec) do (
     if not defined DLL if exist "build-%%A\src\dotnet\publish\TolkDotNet.dll" set "DLL=build-%%A\src\dotnet\publish\TolkDotNet.dll"
   )
 )
@@ -316,7 +336,7 @@ if defined DLL (
 :: Java wrapper
 set "JAR="
 for %%C in (Release Debug) do (
-  for %%A in (x64 x86 arm64) do (
+  for %%A in (x64 x86 arm64 arm64ec) do (
     if not defined JAR if exist "build-%%A\src\java\Tolk.jar" set "JAR=build-%%A\src\java\Tolk.jar"
   )
 )
@@ -331,7 +351,7 @@ if defined JAR (
 :: Documentation
 set "HTML="
 for %%C in (Release Debug) do (
-  for %%A in (x64 x86 arm64) do (
+  for %%A in (x64 x86 arm64 arm64ec) do (
     if not defined HTML if exist "build-%%A\docs\README.html" set "HTML=build-%%A\docs\README.html"
   )
 )
@@ -410,14 +430,18 @@ exit /b 0
 :FIND_VS
 set "VS_FOUND=0"
 set "VS_ARM64=0"
+set "VS_ARM64EC=0"
 set "VS_PATH="
 set "VS_ARM64_PATH="
+set "VS_ARM64EC_PATH="
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
 if not exist "!VSWHERE!" exit /b 0
 for /f "usebackq delims=" %%p in (`"!VSWHERE!" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2^>nul`) do set "VS_PATH=%%p"
 if defined VS_PATH set "VS_FOUND=1"
 for /f "usebackq delims=" %%p in (`"!VSWHERE!" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64 -property installationPath 2^>nul`) do set "VS_ARM64_PATH=%%p"
 if defined VS_ARM64_PATH set "VS_ARM64=1"
+for /f "usebackq delims=" %%p in (`"!VSWHERE!" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64EC -property installationPath 2^>nul`) do set "VS_ARM64EC_PATH=%%p"
+if defined VS_ARM64EC_PATH set "VS_ARM64EC=1"
 exit /b 0
 
 :REQUIRE_ADMIN
@@ -438,7 +462,7 @@ call :ENSURE_CHOCO
 if errorlevel 1 exit /b 1
 if not defined CMAKE_EXE call :CHOCO_INSTALL cmake
 if not "!VS_FOUND!"=="1" (
-  call :CHOCO_INSTALL visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.VC.Tools.ARM64 --includeRecommended --quiet"
+  call :CHOCO_INSTALL visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.VC.Tools.ARM64 --add Microsoft.VisualStudio.Component.VC.Tools.ARM64EC --includeRecommended --quiet"
 )
 :: Optional tools: only used for the language wrappers and documentation.
 call :ENSURE_OPTIONAL_TOOL dotnet dotnet-sdk
