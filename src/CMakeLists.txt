@@ -137,11 +137,6 @@ if(CMAKE_GENERATOR MATCHES "Visual Studio")
     )
     tolk_bridge_embed_file(102 "${TOLK_BRIDGE_X64_EXE}")
     list(APPEND TOLK_BRIDGE_DEPENDS tolk_bridge_x64)
-    tolk_bridge_embed_file(241 "${CMAKE_SOURCE_DIR}/libs/x64/SAAPI64.dll")
-    tolk_bridge_embed_file(261 "${CMAKE_SOURCE_DIR}/libs/x64/ZDSRAPI_x64.dll")
-    tolk_bridge_embed_file(266 "${CMAKE_SOURCE_DIR}/libs/x64/ZDSRAPI.ini")
-    tolk_bridge_embed_file(271 "${CMAKE_SOURCE_DIR}/libs/x64/byctrl-x64.dll")
-    tolk_bridge_embed_file(276 "${CMAKE_SOURCE_DIR}/libs/x64/byctrl.conf")
   endif()
   if(TOLK_BRIDGE_RC_CONTENT)
     set(TOLK_BRIDGE_RC "${CMAKE_BINARY_DIR}/tolk_bridge_resources.rc")
@@ -174,9 +169,18 @@ add_custom_command(TARGET Tolk POST_BUILD
 )
 # Copy architecture-specific libs (DLLs, ini files) to dist
 file(GLOB TOLK_LIB_FILES "${TOLK_LIBS_DIR}/*")
+# ARM64 and ARM64EC have no backend modules of their own for the 64-bit
+# backends, so their distributions ship the x64 modules unchanged. The helper
+# and Tolk.dll load them next to Tolk.dll, exactly like the x64 build does.
+set(TOLK_EXTRA_LIB_FILES "")
+if(TOLK_ARCH STREQUAL "arm64" OR TOLK_ARCH STREQUAL "arm64ec")
+  file(GLOB TOLK_EXTRA_LIB_FILES "${CMAKE_SOURCE_DIR}/libs/x64/*")
+  # NVDA uses its own native client on every architecture.
+  list(REMOVE_ITEM TOLK_EXTRA_LIB_FILES "${CMAKE_SOURCE_DIR}/libs/x64/nvdaControllerClient64.dll")
+endif()
 add_custom_command(TARGET Tolk POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    ${TOLK_LIB_FILES}
+    ${TOLK_LIB_FILES} ${TOLK_EXTRA_LIB_FILES}
     "$<$<CONFIG:Debug>:${TOLK_DIST_DIR_DEBUG}>$<$<CONFIG:Release>:${TOLK_DIST_DIR_RELEASE}>/"
   COMMENT "Copying libs/${TOLK_ARCH} dependencies to dist/${TOLK_ARCH}-$<CONFIG>"
 )

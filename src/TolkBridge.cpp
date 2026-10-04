@@ -31,19 +31,12 @@ struct PayloadEntry {
 // Resource ids embedded by src/CMakeLists.txt. Keep the two in sync.
 const int kBridgeImageResource[2] = { 101, 102 };
 
-// Modules the 32-bit helper needs: the 32-bit only backends.
+// Modules the 32-bit helper needs: the 32-bit only backends. The modules that
+// also have a 64-bit build are not embedded; they are shipped next to Tolk.dll
+// and loaded from there (see TOLK_EXTRA_LIB_FILES in src/CMakeLists.txt).
 const PayloadEntry kX86Payloads[] = {
   { 250, L"dolapi32.dll" },     // SuperNova
   { 280, L"ZDCloudAPI.dll" }    // ZDCloud
-};
-
-// Modules the 64-bit helper needs: the 64-bit backends used from ARM64.
-const PayloadEntry kX64Payloads[] = {
-  { 241, L"SAAPI64.dll" },      // System Access
-  { 261, L"ZDSRAPI_x64.dll" },  // ZDSR
-  { 266, L"ZDSRAPI.ini" },
-  { 271, L"byctrl-x64.dll" },   // BoyPCReader
-  { 276, L"byctrl.conf" }
 };
 
 const wchar_t kBridgeExeName[] = L"TolkBridge.exe";
@@ -85,6 +78,14 @@ HMODULE TolkModule() {
   GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                      reinterpret_cast<LPCWSTR>(&WriteAll), &module);
   return module;
+}
+
+std::wstring ModuleDirectory(HMODULE module) {
+  wchar_t path[MAX_PATH] = {};
+  const DWORD length = GetModuleFileNameW(module, path, MAX_PATH);
+  std::wstring value(path, length);
+  const size_t slash = value.find_last_of(L"\\/");
+  return slash == std::wstring::npos ? std::wstring(L".") : value.substr(0, slash);
 }
 
 bool EnsureDirectory(const std::wstring &path) {
@@ -155,20 +156,20 @@ bool StartBridgeChannel(BridgeChannel &channel) {
     TOLK_LOG_WARN("TolkBridge: no embedded %ls helper image", name);
     return false;
   }
-  const PayloadEntry *payloads = channel.arch == TolkBridgeArchX86 ? kX86Payloads : kX64Payloads;
-  const size_t payloadCount = channel.arch == TolkBridgeArchX86
-      ? sizeof(kX86Payloads) / sizeof(kX86Payloads[0])
-      : sizeof(kX64Payloads) / sizeof(kX64Payloads[0]);
-  for (size_t index = 0; index < payloadCount; ++index) {
-    if (!ExtractResource(module, payloads[index].resourceId, directory + L"\\" + payloads[index].fileName)) {
-      TOLK_LOG_WARN("TolkBridge: failed to extract %ls for the %ls helper", payloads[index].fileName, name);
+  if (channel.arch == TolkBridgeArchX86) {
+    for (size_t index = 0; index < sizeof(kX86Payloads) / sizeof(kX86Payloads[0]); ++index) {
+      if (!ExtractResource(module, kX86Payloads[index].resourceId, directory + L"\\" + kX86Payloads[index].fileName)) {
+        TOLK_LOG_WARN("TolkBridge: failed to extract %ls for the x86 helper", kX86Payloads[index].fileName);
+      }
     }
   }
   static unsigned long counter = 0;
   const std::wstring pipeName = L"\\\\.\\pipe\\TolkBridge_" +
       std::to_wstring(GetCurrentProcessId()) + L"_" + std::to_wstring(static_cast<int>(channel.arch)) +
       L"_" + std::to_wstring(++counter);
-  std::wstring commandLine = L"\"" + exePath + L"\" \"" + pipeName + L"\"";
+  // The helper loads the backend modules from Tolk.dll's directory, which is
+  // where the - for example - x64 modules of the 64-bit backends are shipped.
+  std::wstring commandLine = L"\"" + exePath + L"\" \"" + pipeName + L"\" \"" + ModuleDirectory(module) + L"\"";
   STARTUPINFOW startup = {};
   startup.cb = sizeof(startup);
   PROCESS_INFORMATION process = {};
@@ -266,11 +267,25 @@ bool CallChannel(BridgeChannel *channel, int command, TolkBridgeBackend backend,
 
 }  // namespace
 
+// A backend that cannot be loaded in-process is bridged to a helper of the
+// architecture whose module it uses. The module is selected in the order
+// native -> x64 -> x86: a backend with a native module never gets here, one
+// without a native module but with a 64-bit module uses that module (and the
+// 64-bit helper), and one without either falls back to the 32-bit module (and
+// the 32-bit helper).
 TolkBridgeArch TolkBridgeArchForBackend(TolkBridgeBackend backend) {
   switch (backend) {
+    // No 64-bit module exists: fall back to the 32-bit module.
     case TolkBridgeBackendSNova:
     case TolkBridgeBackendZDCloud:
       return TolkBridgeArchX86;
+    // A 64-bit module exists (or the backend is COM-only), so use 64-bit.
+    case TolkBridgeBackendNVDA:
+    case TolkBridgeBackendJAWS:
+    case TolkBridgeBackendWE:
+    case TolkBridgeBackendSA:
+    case TolkBridgeBackendZDSR:
+    case TolkBridgeBackendBOY:
     default:
       return TolkBridgeArchX64;
   }

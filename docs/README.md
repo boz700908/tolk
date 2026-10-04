@@ -72,14 +72,21 @@ ZDCloud only ships a 32-bit module. On x64, ARM64 and ARM64EC builds Tolk theref
 
 ### Cross-architecture support
 
-Tolk is built for x86, x64, ARM64 and ARM64EC. A backend that has no module for the build's architecture is driven through an embedded helper process of an architecture that does have it, so every backend can be used from every build:
+Tolk is built for x86, x64, ARM64 and ARM64EC. Every backend uses the module of the first architecture that has one, in this order:
+
+1. the native architecture of the build,
+2. x64,
+3. x86.
+
+A module that the process cannot load itself is loaded by a helper process of that module's architecture, so the same rule also decides how a backend is bridged. In practice:
 
 * x86 builds load every backend directly and embed no helper.
-* x64 and ARM64EC builds run the 32-bit-only backends (SuperNova, ZDCloud) in an embedded 32-bit helper. An ARM64EC process loads x64 modules in-process, so no 64-bit helper is needed there.
-* ARM64 builds run the 32-bit-only backends in an embedded 32-bit helper and the 64-bit backends (JAWS, Window-Eyes, System Access, ZDSR, BoyPCReader) in an embedded 64-bit helper. Windows 11 on ARM runs those helpers through its x86 and x64 emulation.
-* NVDA is native on x86, x64 and ARM64. On ARM64EC it uses the x64 client, because a pure ARM64 module cannot be loaded into an ARM64EC process.
+* Every architecture uses a native NVDA client (NVDA 2026.3 or later ships a native ARM64EC client next to the ARM64 one), so NVDA never needs a helper.
+* The backends without an ARM64 module use their x64 module on ARM64 and ARM64EC. An ARM64EC process loads x64 modules in-process; on ARM64 they run in an embedded 64-bit helper.
+* The backends without an x64 module at all (SuperNova and ZDCloud, which are 32-bit only) fall back to their x86 module and run in an embedded 32-bit helper.
+* Windows 11 on ARM runs the helpers through its x86 and x64 emulation.
 
-The helper is never shipped as a separate file. Its image and every module it loads are stored as resources inside `Tolk.dll` and extracted to `%LOCALAPPDATA%\Tolk\Bridge\<arch>` on first use, so nothing has to be deployed next to `Tolk.dll`.
+The helper image is never shipped as a separate file: it is stored as a resource inside `Tolk.dll` and extracted to `%LOCALAPPDATA%\Tolk\Bridge\<arch>` on first use. The 32-bit-only modules are embedded the same way. Modules that also have a 64-bit build are not embedded: the ARM64 and ARM64EC distributions ship the x64 modules unchanged next to `Tolk.dll`, and the helper loads them from there.
 
 ### Wrappers
 

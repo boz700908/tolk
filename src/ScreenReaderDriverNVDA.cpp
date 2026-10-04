@@ -18,9 +18,12 @@ ScreenReaderDriverNVDA::ScreenReaderDriverNVDA() :
   nvdaController_testIfRunning(nullptr),
   nvdaController_isSpeaking(nullptr)
 {
-// ARM64EC is an x64-compatible ABI: it loads the x64 client, not the pure
-// ARM64 one. Only a pure ARM64 build uses the native ARM64 client.
-#if defined(_M_ARM64) && !defined(_M_ARM64EC)
+// Every architecture uses its own native client. NVDA 2026.3 ships a native
+// ARM64EC client next to the ARM64 one, so no emulated client is needed.
+#if defined(_M_ARM64EC)
+  TOLK_LOG_INFO("NVDA: Loading ARM64EC native nvdaControllerClientARM64EC.dll");
+  controller = LoadLibrary(L"nvdaControllerClientARM64EC.dll");
+#elif defined(_M_ARM64)
   TOLK_LOG_INFO("NVDA: Loading ARM64 native nvdaControllerClientARM64.dll");
   controller = LoadLibrary(L"nvdaControllerClientARM64.dll");
 #elif defined(_WIN64)

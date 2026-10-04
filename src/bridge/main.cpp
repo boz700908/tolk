@@ -108,10 +108,13 @@ std::unique_ptr<ScreenReaderDriver> CreateDriver(unsigned long backend) {
 int wmain(int argc, wchar_t **argv) {
   if (argc < 2) return 1;
   CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-  // Load the backend modules from the directory this helper was extracted to.
+  // Load the backend modules from the directory this helper was extracted to
+  // (the embedded 32-bit-only backends) and from Tolk.dll's directory, which
+  // is where the modules that also have a 64-bit build are shipped.
   const std::wstring directory = ModuleDirectory();
   SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS | LOAD_LIBRARY_SEARCH_USER_DIRS);
   AddDllDirectory(directory.c_str());
+  if (argc >= 3 && argv[2] && *argv[2]) AddDllDirectory(argv[2]);
   SetDllDirectoryW(directory.c_str());
   // Publish the pipe immediately so the host can connect as soon as the
   // process starts instead of waiting for a backend to initialize.
