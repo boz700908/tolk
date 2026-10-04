@@ -35,10 +35,6 @@ JNIEXPORT void JNICALL Java_com_davykager_tolk_Tolk_preferSAPI(JNIEnv *, jclass,
   Tolk_PreferSAPI(preferSAPI ? true : false);
 }
 
-JNIEXPORT void JNICALL Java_com_davykager_tolk_Tolk_tryZDCloud(JNIEnv *, jclass, jboolean tryZDCloud) {
-  Tolk_TryZDCloud(tryZDCloud ? true : false);
-}
-
 JNIEXPORT jstring JNICALL Java_com_davykager_tolk_Tolk_detectScreenReader(JNIEnv *env, jclass) {
   const wchar_t *str = Tolk_DetectScreenReader();
   if (!str) return nullptr;

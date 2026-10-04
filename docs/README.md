@@ -66,7 +66,7 @@ The most efficient way of enabling SAPI support is to set it up before calling `
 
 ### Using ZDCloud
 
-Tolk can also output text through ZDCloud (之多云), a cloud speech backend. Like SAPI, this is meant as a fallback and is disabled by default. To enable it, call `Tolk_TryZDCloud(true)`; pass `false` to disable it again. When enabled, ZDCloud is placed after the screen reader drivers and before SAPI in the auto-detection chain. ZDCloud is a 32-bit-only backend, so it is unavailable in x64 and ARM64 builds.
+Tolk can also output text through ZDCloud (之多云), a cloud speech backend. It is enabled by default and placed after the screen reader drivers and before SAPI in the auto-detection chain, so it is used as a fallback when none of the supported screen readers is active. ZDCloud is a 32-bit-only backend and is unavailable in x64 and ARM64 builds.
 
 ### Wrappers
 
@@ -104,7 +104,7 @@ The following table lists the supported screen readers in the order in which the
 ### Notes
 
 * All screen readers that do not support ARM64 will run via x64 emulation.
-* ZDCloud (之多云) is a cloud speech backend rather than a screen reader, so it is not auto-detected unless it is explicitly enabled with `Tolk_TryZDCloud(true)`. It is a 32-bit-only backend and is unavailable in x64 and ARM64 builds.
+* ZDCloud (之多云) is a cloud speech backend rather than a screen reader. It is tried after the screen reader drivers and before SAPI. It is a 32-bit-only backend and is unavailable in x64 and ARM64 builds.
 * NVDA speech-state queries (`Tolk_IsSpeaking`) require NVDA 2026.3 or later, which introduced `nvdaController_isSpeaking`. On older versions `Tolk_IsSpeaking` returns `false`.
 * SuperNova is the only screen reader that does not have a 64-bit compatible API.
 * SuperNova has support for braille, but the API does not let you use it.
