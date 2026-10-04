@@ -1,0 +1,31 @@
+{
+  "name": "com.davykager.tolk",
+  "version": "2.0.0",
+  "displayName": "Tolk - Screen Reader Abstraction",
+  "description": "Unity wrapper for Tolk.dll. Lets a game speak and braille through NVDA, JAWS, Narrator/OneCore, SAPI and the other screen readers Tolk supports, with a single API.",
+  "unity": "2019.4",
+  "keywords": [
+    "accessibility",
+    "screen reader",
+    "tolk",
+    "nvda",
+    "jaws",
+    "blind",
+    "a11y"
+  ],
+  "author": {
+    "name": "Tolk contributors",
+    "url": "https://github.com/davykager/tolk"
+  },
+  "license": "LGPL-3.0",
+  "documentationUrl": "https://github.com/davykager/tolk/blob/master/docs/README.md",
+  "changelogUrl": "https://github.com/davykager/tolk/commits/master",
+  "licensesUrl": "https://github.com/davykager/tolk/blob/master/LICENSE.txt",
+  "samples": [
+    {
+      "displayName": "Basic",
+      "description": "Minimal scene that announces a message on start.",
+      "path": "Samples~/Basic"
+    }
+  ]
+}

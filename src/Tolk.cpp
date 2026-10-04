@@ -34,6 +34,7 @@ static bool g_isLoaded = false;
 static volatile LONG g_lastError = 0;  // Internal error code for debugging
 static std::vector<std::unique_ptr<ScreenReaderDriver>> g_screenReaderDrivers;
 static std::unique_ptr<ScreenReaderDriverSAPI> g_sapi;
+static std::unique_ptr<ScreenReaderDriverOneCore> g_oneCore;
 static ScreenReaderDriver *g_currentScreenReaderDriver = nullptr;
 static bool g_trySAPI = true;
 static bool g_preferSAPI = false;
@@ -63,15 +64,32 @@ static const wchar_t * DetectCurrentScreenReader() {
     return g_cachedName;
   }
 
-  if (g_currentScreenReaderDriver && (g_preferSAPI || g_currentScreenReaderDriver != g_sapi.get()) && g_currentScreenReaderDriver->IsActive()) {
+  const bool currentIsFallback = g_currentScreenReaderDriver != nullptr &&
+    (g_currentScreenReaderDriver == g_sapi.get() || g_currentScreenReaderDriver == g_oneCore.get());
+  if (g_currentScreenReaderDriver && (g_preferSAPI || !currentIsFallback) && g_currentScreenReaderDriver->IsActive()) {
     g_cachedName = g_currentScreenReaderDriver->GetName();
     g_lastDetectTime = currentTime;
     return g_cachedName;
   }
-  if (g_trySAPI && g_preferSAPI && g_sapi && g_sapi->IsActive()) {
-    g_currentScreenReaderDriver = g_sapi.get();
+  // OneCore and SAPI form the fallback speech tier. They are enabled together
+  // through Tolk_TrySAPI and moved together through Tolk_PreferSAPI, and
+  // OneCore, the newer engine, is always tried before SAPI.
+  const auto selectFallback = [&]() -> bool {
+    if (!g_trySAPI) return false;
+    if (g_oneCore && g_oneCore->IsActive()) {
+      g_currentScreenReaderDriver = g_oneCore.get();
+    }
+    else if (g_sapi && g_sapi->IsActive()) {
+      g_currentScreenReaderDriver = g_sapi.get();
+    }
+    else {
+      return false;
+    }
     g_cachedName = g_currentScreenReaderDriver->GetName();
     g_lastDetectTime = currentTime;
+    return true;
+  };
+  if (g_preferSAPI && selectFallback()) {
     return g_cachedName;
   }
   for (const auto &driver : g_screenReaderDrivers) {
@@ -82,10 +100,7 @@ static const wchar_t * DetectCurrentScreenReader() {
       return g_cachedName;
     }
   }
-  if (g_trySAPI && !g_preferSAPI && g_sapi && g_sapi->IsActive()) {
-    g_currentScreenReaderDriver = g_sapi.get();
-    g_cachedName = g_currentScreenReaderDriver->GetName();
-    g_lastDetectTime = currentTime;
+  if (!g_preferSAPI && selectFallback()) {
     return g_cachedName;
   }
   g_currentScreenReaderDriver = nullptr;
@@ -176,14 +191,16 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Load() {
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"PC-Talker", true, true, TolkBridgeBackendPCTalker));
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"Sense Reader", true, false, TolkBridgeBackendSenseReader));
 #endif
-    // Generic Windows backends: UIA notifications and the OneCore speech
-    // engine. Both only activate while a screen reader has set the Windows
-    // screen-reader flag, so they rank below the named screen readers and
-    // above the SAPI fallback.
+    // Generic Windows backend: UIA notifications. It only activates while a
+    // screen reader has set the Windows screen-reader flag, so it ranks below
+    // the named screen readers and above the fallback speech engines.
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverUIA>());
-    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverOneCore>());
+    // Fallback speech engines. Like SAPI, OneCore does not depend on the
+    // Windows screen-reader flag; both are enabled by Tolk_TrySAPI and moved
+    // by Tolk_PreferSAPI, and OneCore is always tried before SAPI.
     if (g_trySAPI) {
-      TOLK_LOG_INFO("Initializing SAPI fallback driver");
+      TOLK_LOG_INFO("Initializing OneCore and SAPI fallback drivers");
+      g_oneCore = std::make_unique<ScreenReaderDriverOneCore>();
       g_sapi = std::make_unique<ScreenReaderDriverSAPI>();
     }
     TOLK_LOG_INFO("All drivers initialized successfully, total=%d", (int)g_screenReaderDrivers.size());
@@ -191,6 +208,7 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Load() {
   catch (...) {
     TOLK_LOG_ERROR("EXCEPTION during driver initialization!");
     InterlockedExchange(&g_lastError, TOLK_ERR_LOAD_EXCEPTION);
+    g_oneCore.reset();
     g_sapi.reset();
     g_screenReaderDrivers.clear();
     ReleaseSRWLockExclusive(&g_srwLock);
@@ -212,6 +230,7 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Unload() {
     TOLK_LOG_INFO("Unloading all drivers");
     g_isLoaded = false;
     g_currentScreenReaderDriver = nullptr;
+    g_oneCore.reset();
     g_sapi.reset();
     g_screenReaderDrivers.clear();
     g_lastDetectTime = 0;
@@ -233,10 +252,16 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_TrySAPI(bool trySAPI) {
   }
   g_trySAPI = trySAPI;
   if (Tolk_IsLoaded()) {
-    if (g_trySAPI && !g_sapi)
-      g_sapi = std::make_unique<ScreenReaderDriverSAPI>();
-    else if (!g_trySAPI && g_sapi)
+    if (g_trySAPI) {
+      if (!g_oneCore)
+        g_oneCore = std::make_unique<ScreenReaderDriverOneCore>();
+      if (!g_sapi)
+        g_sapi = std::make_unique<ScreenReaderDriverSAPI>();
+    }
+    else {
+      g_oneCore.reset();
       g_sapi.reset();
+    }
     g_currentScreenReaderDriver = nullptr;
     g_lastDetectTime = 0;
     g_cachedName = nullptr;
@@ -250,7 +275,7 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_PreferSAPI(bool preferSAPI) {
     return;
   }
   g_preferSAPI = preferSAPI;
-  if (Tolk_IsLoaded() && g_trySAPI && g_sapi) {
+  if (Tolk_IsLoaded() && g_trySAPI && (g_oneCore || g_sapi)) {
     g_currentScreenReaderDriver = nullptr;
     g_lastDetectTime = 0;
     g_cachedName = nullptr;

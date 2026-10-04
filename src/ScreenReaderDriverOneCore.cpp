@@ -202,25 +202,23 @@ bool ScreenReaderDriverOneCore::IsActive() {
   cachedIsActive = false;
   if (!disabled) {
     // OneCore is the Windows speech engine behind Narrator, not a screen
-    // reader that can be detected on its own. It is only offered while a
-    // screen reader has claimed the Windows screen-reader flag, so that it
-    // stays below the named screen readers and above the SAPI fallback.
-    BOOL screenReader = FALSE;
-    if (SystemParametersInfoW(SPI_GETSCREENREADER, 0, &screenReader, 0) && screenReader != FALSE) {
-      bool supported = false;
-      try {
-        supported = impl && impl->Start();
-      }
-      catch (...) {
-        supported = false;
-      }
-      if (supported) {
-        cachedIsActive = true;
-      }
-      else {
-        TOLK_LOG_WARN("OneCore: Windows speech synthesis is unavailable, driver disabled");
-        disabled = true;
-      }
+    // reader that can be detected on its own. Like SAPI it therefore does not
+    // depend on the Windows screen-reader flag: it is active whenever the
+    // Windows speech stack is usable. Tolk_TrySAPI enables and disables it
+    // together with SAPI, and it is always tried before SAPI.
+    bool supported = false;
+    try {
+      supported = impl && impl->Start();
+    }
+    catch (...) {
+      supported = false;
+    }
+    if (supported) {
+      cachedIsActive = true;
+    }
+    else {
+      TOLK_LOG_WARN("OneCore: Windows speech synthesis is unavailable, driver disabled");
+      disabled = true;
     }
   }
   lastIsActiveTime = currentTime;

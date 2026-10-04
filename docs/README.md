@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Tolk is an application extension (DLL) that allows Windows applications to output text through screen reader software (assistive technology for the blind and visually impaired). It is an abstraction layer on top of the vendor-specific APIs that auto-detects the active screen reader, allowing for clean and simple client code. Speech and braille output are supported in 32-bit and 64-bit environments. See `Supported screen readers` for more details. In addition to screen readers, Microsoft Speech API (SAPI) is also supported. The name Tolk is a Dutch word meaning interpreter.
+Tolk is an application extension (DLL) that allows Windows applications to output text through screen reader software (assistive technology for the blind and visually impaired). It is an abstraction layer on top of the vendor-specific APIs that auto-detects the active screen reader, allowing for clean and simple client code. Speech and braille output are supported in 32-bit and 64-bit environments. See `Supported screen readers` for more details. In addition to screen readers, the Windows OneCore speech engine and Microsoft Speech API (SAPI) are supported as fallback speech engines. The name Tolk is a Dutch word meaning interpreter.
 
 There are APIs for the following languages:
 
@@ -21,7 +21,7 @@ Client libraries and headers are distributed under their own license.
 
 ## Design
 
-The key components of Tolk are the screen reader drivers. They wrap a specific screen reader API into an abstract interface which is then used by Tolk's auto-detection mechanism. SAPI, albeit not a screen reader, also has its own driver. To keep things simple and secure, these screen reader drivers are not exposed to client code.
+The key components of Tolk are the screen reader drivers. They wrap a specific screen reader API into an abstract interface which is then used by Tolk's auto-detection mechanism. The fallback speech engines, Windows OneCore and SAPI, albeit not screen readers, also have their own drivers. To keep things simple and secure, these screen reader drivers are not exposed to client code.
 
 Functions that output text or that silence speech are asynchronous. That is, they return immediately once the appropriate commands have been queued for processing by the active screen reader. All other functions are synchronous. That is, they return only when their work is done.
 
@@ -32,7 +32,7 @@ Finally, a few words on multi-threaded applications. Tolk is not thread-safe. Al
 
 ## Usage
 
-Tolk has functions for (un)initialization, querying and using the active screen reader, and for working with Microsoft SAPI. To use Tolk, import the appropriate version of `Tolk.dll` into your application. In C/C++ this is usually done by including `Tolk.h` and linking with the appropriate import library `Tolk.lib`. You could also use the Windows API functions `LoadLibrary` and `FreeLibrary`. Other languages are also supported, see `Wrappers`. If you're working in an unsupported language, use its specific facilities to call into the DLL.
+Tolk has functions for (un)initialization, querying and using the active screen reader, and for working with the fallback speech engines, Windows OneCore and Microsoft SAPI. To use Tolk, import the appropriate version of `Tolk.dll` into your application. In C/C++ this is usually done by including `Tolk.h` and linking with the appropriate import library `Tolk.lib`. You could also use the Windows API functions `LoadLibrary` and `FreeLibrary`. Other languages are also supported, see `Wrappers`. If you're working in an unsupported language, use its specific facilities to call into the DLL.
 
 ### Required files
 
@@ -54,19 +54,19 @@ If a screen reader is active, you can use `Tolk_HasSpeech` and `Tolk_HasBraille`
 
 For synchronization, `Tolk_IsSpeaking` returns whether or not the active screen reader is speaking text at the time of the call, assuming the driver supports this query. Note that not many drivers implement this functionality because of limitations in screen reader APIs. See the `Status` column of the `Supported screen readers` table for details. There is no such function for braille, since braille is instantaneous.
 
-### Using SAPI
+### Using the fallback speech engines (OneCore and SAPI)
 
-Tolk can output text through Microsoft SAPI. This is mostly meant as a fallback mechanism. To do this, Tolk has a screen reader driver that uses SAPI 5.4. Therefore, the functionality is limited to what screen reader drivers provide. Applications that need more control should use SAPI directly. Another consequence is that you can control SAPI usage explicitly via Tolk_TrySAPI() and Tolk_PreferSAPI() functions.
+Tolk can output text through the Windows speech stack even when no screen reader is running. Two drivers provide this: OneCore, which uses the modern Windows speech engine (`Windows.Media.SpeechSynthesis`, the engine behind Narrator), and SAPI, which uses SAPI 5.4. This is mostly meant as a fallback mechanism, so the functionality is limited to what screen reader drivers provide. Applications that need more control should use the speech engine directly. Both engines are controlled explicitly via the Tolk_TrySAPI() and Tolk_PreferSAPI() functions.
 
-By default, support for SAPI is enabled. To change this, use `Tolk_TrySAPI`, passing `true` to enable SAPI or `false` to disable it. The required driver will automatically be (un)loaded.
+By default, support for both fallback engines is enabled. To change this, use `Tolk_TrySAPI`, passing `true` to enable them or `false` to disable them. The required drivers will automatically be (un)loaded.
 
-SAPI is initially put at the end of the auto-detection chain. This is good for using it as a fallback option when none of the supported screen readers is running. It is also possible to have Tolk prefer SAPI over the other screen reader drivers. This is good for basic SAPI output where screen readers are only tried if SAPI fails or if SAPI 5.4 or later is unavailable. To change the preference for SAPI, use `Tolk_PreferSAPI`. This also takes a boolean parameter, `true` to prefer SAPI or `false` to prefer the traditional screen readers.
+The fallback engines are initially put at the end of the auto-detection chain. This is good for using them as a fallback option when none of the supported screen readers is running. It is also possible to have Tolk prefer them over the other screen reader drivers. This is good for basic speech output where screen readers are only tried if the engines fail. To change the preference, use `Tolk_PreferSAPI`. This also takes a boolean parameter, `true` to prefer the fallback engines or `false` to prefer the traditional screen readers. OneCore, the newer engine, is always tried before SAPI.
 
-The most efficient way of enabling SAPI support is to set it up before calling `Tolk_Load`. However, you can also call these functions after Tolk has already been loaded. This will trigger the screen reader detection process and is therefore slightly less efficient.
+The most efficient way of enabling the fallback engines is to set them up before calling `Tolk_Load`. However, you can also call these functions after Tolk has already been loaded. This will trigger the screen reader detection process and is therefore slightly less efficient.
 
 ### Using ZDCloud
 
-Tolk also has a driver for ZDCloud (之多云). ZDCloud is a screen reader rather than a general-purpose speech backend: its speech output reads the content of its own features. The driver is enabled by default and placed after the other screen reader drivers and before SAPI in the auto-detection chain, so it is used when none of the other supported screen readers is active.
+Tolk also has a driver for ZDCloud (之多云). ZDCloud is a screen reader rather than a general-purpose speech backend: its speech output reads the content of its own features. The driver is enabled by default and placed after the other screen reader drivers and before the fallback speech engines in the auto-detection chain, so it is used when none of the other supported screen readers is active.
 
 ZDCloud only ships a 32-bit module. On x64, ARM64 and ARM64EC builds Tolk therefore hosts it in a small embedded 32-bit helper process and talks to it over a named pipe (see `Cross-architecture support`).
 
@@ -101,9 +101,17 @@ Wrappers around `Tolk.dll` have been added for some languages to make things eas
 
 The wrappers cover all functions and use the language's native types where possible.
 
+Game engines are covered by bindings that are not compiled with Tolk itself; see `contrib/game-engines/README.md`:
+
+* **Unity**: A UPM package with a C# binding that degrades to no-ops when `Tolk.dll` is missing.
+* **Unreal Engine**: A runtime plugin that exposes Tolk to Blueprints and C++.
+* **Godot**: A GDExtension that registers a `Tolk` singleton for GDScript and C#.
+* **GameMaker**: GML scripts over a small string-conversion shim.
+* **LOVE**: The LuaJIT binding in `contrib/lua` works unchanged.
+
 ## Examples
 
-Take a look at the `examples` directory to get started. This directory contains console applications in the supported languages that demonstrate the basic usage. Note that Microsoft SAPI will stop speaking when your application closes, which means that it will not work with these console applications because they return immediately after queueing text. Add a short delay (sleep) to work around this if you want to try SAPI.
+Take a look at the `examples` directory to get started. This directory contains console applications in the supported languages that demonstrate the basic usage. Note that the fallback speech engines (OneCore and SAPI) will stop speaking when your application closes, which means that they will not work with these console applications because they return immediately after queueing text. Add a short delay (sleep) to work around this if you want to try them.
 
 ## Supported screen readers
 
@@ -137,10 +145,11 @@ The following table lists the supported screen readers in the order in which the
 * On ARM64, Windows 11 x86 and x64 emulation is required for the backends that have no ARM64 module.
 * PC-Talker (Japanese) and Sense Reader (Korean) are regional screen readers. PC-Talker speaks and drives braille displays through `PCTKUSR.dll`; Sense Reader speaks through the COM server of `xvsrd.exe`. Neither ships an ARM64 build, so ARM64 drives them through the embedded 64-bit helper exactly like the other local readers.
 * Sense Reader does not expose a speech-state query, so `Tolk_IsSpeaking` returns `false` while it is active.
-* UIA speaks through UI Automation notification events, which any listening UIA client (such as Narrator) announces. OneCore speaks through the Windows speech engine used by Narrator (`Windows.Media.SpeechSynthesis`). Both are only offered while a screen reader has set the Windows screen-reader flag, and UIA additionally requires a listening UIA client; both are tried after every named screen reader and before SAPI, so they never displace a real screen reader. Because they are provided by Windows, every architecture uses its native components.
+* UIA speaks through UI Automation notification events, which any listening UIA client (such as Narrator) announces. It is only offered while a screen reader has set the Windows screen-reader flag and a UIA client is listening, and it is tried after every named screen reader and before the fallback speech engines, so it never displaces a real screen reader. Because it is provided by Windows, every architecture uses its native component.
+* OneCore speaks through the Windows speech engine behind Narrator (`Windows.Media.SpeechSynthesis`). Like SAPI it is an ordinary speech engine, not a screen reader that can be detected on its own: it does not depend on the Windows screen-reader flag, it is enabled and disabled together with SAPI through `Tolk_TrySAPI`, moved with `Tolk_PreferSAPI`, and always tried before SAPI. Because it is provided by Windows, every architecture uses its native component.
 * The UIA and OneCore drivers require Windows 10 (1709 for UIA notifications). On older systems they report themselves unavailable and Tolk falls back as usual.
 * The UIA, OneCore, PC-Talker and Sense Reader drivers were ported from the Prism project (https://github.com/ethindp/prism, MPL-2.0). Prism's D-Bus backends (Orca, speech-dispatcher, Spiel) are not ported: they depend on GLib/GIO and D-Bus and target Linux (or Wine) rather than a native Windows screen reader.
-* ZDCloud (之多云) is a screen reader driver, not a general-purpose speech backend: its speech reads the content of its own features. It is tried after the other screen reader drivers and before SAPI.
+* ZDCloud (之多云) is a screen reader driver, not a general-purpose speech backend: its speech reads the content of its own features. It is tried after the other screen reader drivers and before the fallback speech engines.
 * NVDA speech-state queries (`Tolk_IsSpeaking`) require NVDA 2026.3 or later, which introduced `nvdaController_isSpeaking`. On older versions `Tolk_IsSpeaking` returns `false`.
 * SuperNova and ZDCloud only provide a 32-bit API. On 64-bit builds they are driven through the embedded 32-bit helper; see `Cross-architecture support`.
 * SuperNova has support for braille, but the API does not let you use it.

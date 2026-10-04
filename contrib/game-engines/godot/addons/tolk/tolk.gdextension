@@ -1,0 +1,20 @@
+; Tolk GDExtension for Godot 4.
+; Build the extension with SConstruct (see README.md), then copy Tolk.dll and
+; its screen reader client modules from dist/<arch>/<config> into the same
+; "bin" folder so the loader can find them.
+
+[configuration]
+
+entry_symbol = "tolk_library_init"
+compatibility_minimum = "4.2"
+reloadable = true
+android_aar_plugin = false
+
+[libraries]
+
+windows.debug.x86_64 = "res://addons/tolk/bin/tolk.windows.debug.x86_64.dll"
+windows.release.x86_64 = "res://addons/tolk/bin/tolk.windows.release.x86_64.dll"
+windows.debug.x86_32 = "res://addons/tolk/bin/tolk.windows.debug.x86_32.dll"
+windows.release.x86_32 = "res://addons/tolk/bin/tolk.windows.release.x86_32.dll"
+windows.debug.arm64 = "res://addons/tolk/bin/tolk.windows.debug.arm64.dll"
+windows.release.arm64 = "res://addons/tolk/bin/tolk.windows.release.arm64.dll"

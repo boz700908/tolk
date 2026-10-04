@@ -49,16 +49,16 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Unload();
 
 /**
  *  Name:         Tolk_TrySAPI
- *  Description:  Sets if Microsoft Speech API (SAPI) should be used in the screen reader auto-detection process. The default is not to include SAPI. The SAPI driver will use the system default synthesizer, voice and soundcard. This function triggers the screen reader detection process if needed. For best performance, you should call this function before calling Tolk_Load.
- *  Parameters:   trySAPI: whether or not to include SAPI in auto-detection.
+ *  Description:  Sets if the fallback speech engines should be used in the screen reader auto-detection process. These are the Windows OneCore engine and Microsoft Speech API (SAPI), which are enabled and disabled together; OneCore is always tried before SAPI. The default is to include them. The drivers use the system default voice and soundcard. This function triggers the screen reader detection process if needed. For best performance, you should call this function before calling Tolk_Load. The function name is kept for backward compatibility, but it controls both fallback engines.
+ *  Parameters:   trySAPI: whether or not to include the fallback speech engines in auto-detection.
  *  Returns:      None.
  */
 TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_TrySAPI(bool trySAPI);
 
 /**
  *  Name:         Tolk_PreferSAPI
- *  Description:  If auto-detection for SAPI has been turned on through Tolk_TrySAPI, sets if SAPI should be placed first (true) or last (false) in the screen reader detection list. Putting it last is the default and is good for using SAPI as a fallback option. Putting it first is good for ensuring SAPI is used even when a screen reader is running, but keep in mind screen readers will still be tried if SAPI is unavailable. This function triggers the screen reader detection process if needed. For best performance, you should call this function before calling Tolk_Load.
- *  Parameters:   preferSAPI: whether or not to prefer SAPI over screen reader drivers in auto-detection.
+ *  Description:  If auto-detection for the fallback speech engines has been turned on through Tolk_TrySAPI, sets if they should be placed first (true) or last (false) in the screen reader detection list. OneCore is tried before SAPI either way. Putting them last is the default and is good for using them as a fallback option. Putting them first is good for ensuring they are used even when a screen reader is running, but keep in mind screen readers will still be tried if they are unavailable. This function triggers the screen reader detection process if needed. For best performance, you should call this function before calling Tolk_Load. The function name is kept for backward compatibility, but it controls both fallback engines.
+ *  Parameters:   preferSAPI: whether or not to prefer the fallback speech engines over screen reader drivers in auto-detection.
  *  Returns:      None.
  */
 TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_PreferSAPI(bool preferSAPI);

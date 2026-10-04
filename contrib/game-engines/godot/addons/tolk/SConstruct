@@ -1,0 +1,30 @@
+#!/usr/bin/env python
+"""Build the Tolk GDExtension.
+
+Requires godot-cpp (https://github.com/godotengine/godot-cpp). Point
+GODOT_CPP_ROOT at it if it is not in ./godot-cpp, and TOLK_ROOT at the Tolk
+repository if it is not five levels above this file. TOLK_LIB_DIR overrides
+the folder the Tolk import library is read from (defaults to
+<TOLK_ROOT>/dist/<arch>/Release).
+"""
+
+import os
+
+env = SConscript(os.path.join(os.environ.get("GODOT_CPP_ROOT", "godot-cpp"), "SConstruct"))
+
+env.Append(CPPPATH=["src/"])
+
+if env["platform"] == "windows":
+    tolk_root = os.environ.get("TOLK_ROOT", os.path.abspath("../../../../.."))
+    arch_dirs = {"x86_64": "x64", "x86_32": "x86", "arm64": "arm64"}
+    arch = arch_dirs.get(env["arch"], "x64")
+    lib_dir = os.environ.get("TOLK_LIB_DIR", os.path.join(tolk_root, "dist", arch, "Release"))
+    env.Append(CPPPATH=[os.path.join(tolk_root, "src")])
+    env.Append(LIBPATH=[lib_dir])
+    env.Append(LIBS=["Tolk"])
+
+sources = Glob("src/*.cpp")
+suffix = "{}.{}.{}".format(env["platform"], env["target"], env["arch"])
+library = env.SharedLibrary("bin/tolk" + suffix, source=sources)
+
+Default(library)
