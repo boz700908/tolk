@@ -15,19 +15,14 @@ set(TOLK_WRAPPER_BINDING_FILES
 )
 include("${CMAKE_CURRENT_SOURCE_DIR}/check_bindings.cmake")
 
-# GameMaker shim: compiled and linked against the real Tolk target, so a
-# missing export fails the link instead of the user's game.
-add_library(TolkGmlShim SHARED "${CMAKE_SOURCE_DIR}/contrib/game-engines/gamemaker/source/tolk_gml.c")
-target_include_directories(TolkGmlShim PRIVATE "${CMAKE_SOURCE_DIR}/src")
-target_link_libraries(TolkGmlShim PRIVATE Tolk)
-set_target_properties(TolkGmlShim PROPERTIES OUTPUT_NAME "TolkGml")
-
-# Smoke test: load the shim, call it, unload it.
+# Smoke test: load the shim, call it, unload it. The shim itself is built by
+# the normal build (see wrappers/CMakeLists.txt) and linked against the real
+# Tolk target there, so a missing export fails that link.
 add_executable(tolk_wrappers_test tolk_wrappers_test.c)
-target_link_libraries(tolk_wrappers_test PRIVATE TolkGmlShim)
+target_link_libraries(tolk_wrappers_test PRIVATE TolkGml)
 add_custom_command(TARGET tolk_wrappers_test POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:Tolk>" "$<TARGET_FILE_DIR:tolk_wrappers_test>"
-  COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:TolkGmlShim>" "$<TARGET_FILE_DIR:tolk_wrappers_test>"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:TolkGml>" "$<TARGET_FILE_DIR:tolk_wrappers_test>"
   COMMAND "$<TARGET_FILE:tolk_wrappers_test>"
   COMMENT "Running the wrapper smoke test"
   VERBATIM

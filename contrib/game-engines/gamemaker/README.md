@@ -3,7 +3,12 @@
 GameMaker strings are UTF-8 while Tolk speaks UTF-16, so a tiny shim,
 `TolkGml.dll`, does the conversion and forwards everything to `Tolk.dll`.
 
-## Building the shim
+## Getting the shim
+
+A Tolk release package already contains the prebuilt shim for every
+architecture under `bin/<arch>/TolkGml.dll`, so you can go straight to
+step 3 below and copy the one that matches your game. Building it yourself is
+only needed for an architecture the package does not cover.
 
 1. Build Tolk for the architecture your game uses (`build.bat release --x64`
    or `--x86`).
@@ -11,7 +16,8 @@ GameMaker strings are UTF-8 while Tolk speaks UTF-16, so a tiny shim,
    `build.bat x86`) in this folder.
 3. Copy `TolkGml.dll`, `Tolk.dll` and every screen reader client module from
    `dist/<arch>/<config>` into the game's working directory, or ship them as
-   *Included Files*.
+   *Included Files*. `TolkGml.dll` and `Tolk.dll` must have the same
+   architecture (bitness), otherwise loading fails.
 
 ## Usage
 

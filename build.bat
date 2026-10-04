@@ -223,6 +223,10 @@ if defined DOTNET_EXE if exist "src\dotnet\TolkDotNet.csproj" (
   if errorlevel 1 echo WARNING: dotnet restore failed, the .NET wrapper may not build.
 )
 
+:: Pandoc renders the main documentation and every wrapper document to HTML.
+set "PANDOC_EXE="
+for /f "delims=" %%i in ('where pandoc 2^>nul') do if not defined PANDOC_EXE set "PANDOC_EXE=%%i"
+
 echo [Tools] CMAKE=!CMAKE_EXE!
 exit /b 0
 
@@ -294,6 +298,7 @@ if not exist "%DST%" mkdir "%DST%"
 xcopy /E /I /Y /Q "%SRC%\*" "%DST%\" >nul
 if exist "build-%ARCH%\src\%CFG%\Tolk.pdb" copy /Y "build-%ARCH%\src\%CFG%\Tolk.pdb" "%DST%\" >nul
 if exist "build-%ARCH%\src\%CFG%\Tolk.exp" copy /Y "build-%ARCH%\src\%CFG%\Tolk.exp" "%DST%\" >nul
+if exist "build-%ARCH%\wrappers\%CFG%\TolkGml.dll" copy /Y "build-%ARCH%\wrappers\%CFG%\TolkGml.dll" "%DST%\" >nul
 if not exist "%DST%\Tolk.dll" (
   echo WARNING: Tolk.dll is missing from %DST%
   set "ASM_FAIL=1"
@@ -344,6 +349,25 @@ if exist "contrib\game-engines" (
 
 :: Overview of every wrapper layer in the package.
 if exist "contrib\README.md" copy /Y "contrib\README.md" "dist\wrappers\README.md" >nul
+
+:: Prebuilt GameMaker shim per architecture, so the binding works without a
+:: compiler. Release is preferred over Debug when both were built.
+for %%A in (x86 x64 arm64 arm64ec) do (
+  set "GML="
+  if exist "dist\%%A\Release\TolkGml.dll" set "GML=dist\%%A\Release\TolkGml.dll"
+  if not defined GML if exist "dist\%%A\Debug\TolkGml.dll" set "GML=dist\%%A\Debug\TolkGml.dll"
+  if defined GML (
+    if not exist "dist\wrappers\game-engines\gamemaker\bin\%%A" mkdir "dist\wrappers\game-engines\gamemaker\bin\%%A"
+    copy /Y "!GML!" "dist\wrappers\game-engines\gamemaker\bin\%%A\TolkGml.dll" >nul
+  )
+)
+
+:: Every wrapper document is also rendered to HTML, like the main README.
+if defined PANDOC_EXE if exist "dist\wrappers" (
+  for /r "dist\wrappers" %%F in (*.md) do (
+    call "!PANDOC_EXE!" -s --toc -r markdown -w html5 -o "%%~dpnF.html" "%%F" >nul 2>nul
+  )
+)
 
 :: .NET wrapper
 set "DLL="

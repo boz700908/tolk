@@ -21,8 +21,20 @@ them:
 | `game-engines/gamemaker` | GameMaker  | GML scripts + conversion shim          |
 
 The `dotnet`, `java` and `python` folders are built by `build.bat`; the others
-are source-only and are shipped as-is. See `game-engines/README.md` for the
+are source-only and are shipped as-is, except for the GameMaker shim which is
+compiled per architecture (see below). See `game-engines/README.md` for the
 engine bindings and the repository README for the native API.
+
+## In a release package
+
+A release build copies this layout into `dist/wrappers` and adds two things
+that are not in the repository:
+
+* every Markdown document here is also rendered to HTML, next to its source;
+* `game-engines/gamemaker/bin/<arch>/TolkGml.dll` holds the prebuilt
+  conversion shim for each architecture, so the GameMaker binding can be used
+  without a compiler. The source and `game-engines/gamemaker/build.bat` stay
+  available for architectures the package does not cover.
 
 ## Common requirements
 

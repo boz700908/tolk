@@ -207,6 +207,7 @@ dist/
 │   ├── Debug/      # ARM64EC Debug build (x64 modules in-process, 32-bit backends via the bridge)
 │   └── Release/    # ARM64EC Release build
 ├── wrappers/       # Shared language wrappers (all architectures)
+│   ├── README.md   # Wrapper overview (also emitted as README.html)
 │   ├── dotnet/     # .NET wrapper (TolkDotNet.dll)
 │   ├── java/       # Java wrapper (Tolk.jar)
 │   ├── python/     # Python wrapper (Tolk.py)
@@ -217,12 +218,15 @@ dist/
 │   ├── oxygene/    # Oxygene wrapper
 │   ├── swift-silver/ # Silver Swift wrapper
 │   └── game-engines/ # Unity, Unreal, Godot and GameMaker packages
+│       └── gamemaker/bin/<arch>/TolkGml.dll  # prebuilt shim per architecture
 ├── dotnet/         # Legacy .NET wrapper (backward compatibility)
 ├── java/           # Legacy Java wrapper (backward compatibility)
 ├── docs/           # Documentation
 ├── DEBUG_FEATURES.txt
 └── LICENSE files
 ```
+
+Every architecture folder also carries the prebuilt GameMaker shim `TolkGml.dll` next to `Tolk.dll`, and `dist/wrappers` repeats it per architecture under `game-engines/gamemaker/bin/<arch>` so that binding works without a compiler. Every Markdown document under `dist/wrappers` is rendered to HTML next to its source, exactly like this README.
 
 ## Debugging and Logging
 

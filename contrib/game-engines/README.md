@@ -9,7 +9,7 @@ build and install instructions.
 | Unity            | `unity`      | UPM package with a guarded C# binding         |
 | Unreal Engine    | `unreal`     | Runtime plugin (Blueprints + C++)             |
 | Godot            | `godot`      | GDExtension registering a `Tolk` singleton    |
-| GameMaker        | `gamemaker`  | GML scripts plus a UTF-8/UTF-16 shim          |
+| GameMaker        | `gamemaker`  | GML scripts plus a UTF-8/UTF-16 shim, prebuilt per architecture in a release package |
 
 Engines that already have a language binding in the main tree can use it
 directly:

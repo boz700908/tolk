@@ -117,6 +117,13 @@ jobs:
           :: Language wrappers — shared common directory (identical for every architecture)
           mkdir dist\wrappers
           xcopy /E /I /Y artifacts\tolk-wrappers\* dist\wrappers\
+          :: GameMaker shim — compiled once per architecture, shipped prebuilt
+          for %%A in (x86 x64 arm64 arm64ec) do (
+            if exist "artifacts\tolk-%%A-Release\TolkGml.dll" (
+              if not exist "dist\wrappers\game-engines\gamemaker\bin\%%A" mkdir "dist\wrappers\game-engines\gamemaker\bin\%%A"
+              copy /Y "artifacts\tolk-%%A-Release\TolkGml.dll" "dist\wrappers\game-engines\gamemaker\bin\%%A\TolkGml.dll" >nul
+            )
+          )
           :: Documentation — separate directory
           mkdir dist\docs
           xcopy /E /I /Y artifacts\tolk-docs\* dist\docs\

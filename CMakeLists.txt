@@ -43,6 +43,9 @@ set(TOLK_LIBS_DIR "${CMAKE_SOURCE_DIR}/libs/${TOLK_ARCH}")
 # Core C++ DLL
 add_subdirectory(src)
 
+# Compiled wrapper payloads (the GameMaker shim)
+add_subdirectory(wrappers)
+
 # Wrapper binding compile checks. Test only: never installed, never shipped.
 if(TOLK_BUILD_WRAPPER_TESTS)
   add_subdirectory(tests/wrappers)
