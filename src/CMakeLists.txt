@@ -63,11 +63,6 @@ target_compile_definitions(Tolk PRIVATE
   _UNICODE
   $<$<CONFIG:Debug>:_DEBUG>
   $<$<BOOL:${TOLK_BUILD_JNI}>:_WITH_JNI>
-  # C++/WinRT (used by the OneCore backend) includes <experimental/coroutine>
-  # when the project is built as C++17. Recent MSVC STL versions turn that
-  # include into a hard error (STL1011); silence it explicitly instead of
-  # raising the whole project to C++20.
-  _SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
 )
 if(TOLK_BUILD_JNI)
   target_include_directories(Tolk PRIVATE ${JNI_INCLUDE_DIRS})

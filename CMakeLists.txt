@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
 project(Tolk VERSION 2.0.0 LANGUAGES C CXX)
 
-# Modern C++17 standard with Windows 7 runtime compatibility
-# C++17 features available, but generated binaries still compatible with Windows 7+
-set(CMAKE_CXX_STANDARD 17)
+# Modern C++20 standard, still targeting Windows 7 at runtime. The language
+# and library level is raised without touching the compatibility baseline, so
+# the generated binaries keep running on Windows 7+ (see _WIN32_WINNT below).
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
