@@ -183,6 +183,11 @@ if(TOLK_ARCH STREQUAL "x64" OR TOLK_ARCH STREQUAL "arm64ec" OR TOLK_ARCH STREQUA
   file(GLOB TOLK_X64_LIB_FILES "${CMAKE_SOURCE_DIR}/libs/x64/*")
   list(APPEND TOLK_EXTRA_LIB_FILES ${TOLK_X64_LIB_FILES})
 endif()
+# NVDA uses its own native client on ARM64 and ARM64EC, so the x64 NVDA client
+# (which those builds never load) is left out there.
+if(TOLK_ARCH STREQUAL "arm64" OR TOLK_ARCH STREQUAL "arm64ec")
+  list(REMOVE_ITEM TOLK_EXTRA_LIB_FILES "${CMAKE_SOURCE_DIR}/libs/x64/nvdaControllerClient64.dll")
+endif()
 add_custom_command(TARGET Tolk POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
     ${TOLK_LIB_FILES} ${TOLK_EXTRA_LIB_FILES}
