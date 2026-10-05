@@ -36,6 +36,9 @@ static std::vector<std::unique_ptr<ScreenReaderDriver>> g_screenReaderDrivers;
 static std::unique_ptr<ScreenReaderDriverSAPI> g_sapi;
 static std::unique_ptr<ScreenReaderDriverOneCore> g_oneCore;
 static ScreenReaderDriver *g_currentScreenReaderDriver = nullptr;
+// The UIA driver, kept separately so detection can tell it apart from the
+// named screen readers.
+static ScreenReaderDriver *g_uiaDriver = nullptr;
 static bool g_trySAPI = true;
 static bool g_preferSAPI = false;
 
@@ -66,7 +69,13 @@ static const wchar_t * DetectCurrentScreenReader() {
 
   const bool currentIsFallback = g_currentScreenReaderDriver != nullptr &&
     (g_currentScreenReaderDriver == g_sapi.get() || g_currentScreenReaderDriver == g_oneCore.get());
-  if (g_currentScreenReaderDriver && (g_preferSAPI || !currentIsFallback) && g_currentScreenReaderDriver->IsActive()) {
+  // UIA reports itself active whenever the Windows screen-reader flag is set
+  // and any UIA client is listening. That can also describe a screen reader
+  // that has its own driver, and those signals can outlive the reader, so do
+  // not latch onto UIA: re-scan every call to let a named screen reader that
+  // appears later take over and to fall through once UIA really stops.
+  const bool currentIsUia = g_currentScreenReaderDriver != nullptr && g_currentScreenReaderDriver == g_uiaDriver;
+  if (g_currentScreenReaderDriver && !currentIsUia && (g_preferSAPI || !currentIsFallback) && g_currentScreenReaderDriver->IsActive()) {
     g_cachedName = g_currentScreenReaderDriver->GetName();
     g_lastDetectTime = currentTime;
     return g_cachedName;
@@ -92,8 +101,10 @@ static const wchar_t * DetectCurrentScreenReader() {
   if (g_preferSAPI && selectFallback()) {
     return g_cachedName;
   }
+  // The current driver is deliberately not skipped: when it is UIA the scan
+  // must be able to select it again after no named driver matched.
   for (const auto &driver : g_screenReaderDrivers) {
-    if (driver.get() != g_currentScreenReaderDriver && driver->IsActive()) {
+    if (driver->IsActive()) {
       g_currentScreenReaderDriver = driver.get();
       g_cachedName = g_currentScreenReaderDriver->GetName();
       g_lastDetectTime = currentTime;
@@ -192,9 +203,13 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Load() {
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"Sense Reader", true, false, TolkBridgeBackendSenseReader));
 #endif
     // Generic Windows backend: UIA notifications. It only activates while a
-    // screen reader has set the Windows screen-reader flag, so it ranks below
-    // the named screen readers and above the fallback speech engines.
+    // screen reader has set the Windows screen-reader flag, a UIA client is
+    // listening and the application owns a top-level window to host the
+    // provider on, so it ranks below the named screen readers and above the
+    // fallback speech engines. It is never latched onto (see
+    // DetectCurrentScreenReader) because those signals can outlive the reader.
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverUIA>());
+    g_uiaDriver = g_screenReaderDrivers.back().get();
     // Fallback speech engines. Like SAPI, OneCore does not depend on the
     // Windows screen-reader flag; both are enabled by Tolk_TrySAPI and moved
     // by Tolk_PreferSAPI, and OneCore is always tried before SAPI.
@@ -211,6 +226,7 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Load() {
     g_oneCore.reset();
     g_sapi.reset();
     g_screenReaderDrivers.clear();
+    g_uiaDriver = nullptr;
     ReleaseSRWLockExclusive(&g_srwLock);
     return;
   }
@@ -233,6 +249,7 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Unload() {
     g_oneCore.reset();
     g_sapi.reset();
     g_screenReaderDrivers.clear();
+    g_uiaDriver = nullptr;
     g_lastDetectTime = 0;
     g_cachedName = nullptr;
   }

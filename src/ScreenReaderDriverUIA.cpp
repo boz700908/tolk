@@ -11,6 +11,7 @@
 #include "TolkDebug.h"
 #include <UIAutomation.h>
 #include <UIAutomationCoreApi.h>
+#include <cwchar>
 #include <deque>
 #include <mutex>
 #include <string>
@@ -35,10 +36,11 @@ struct UiaApi {
   LRESULT (WINAPI *ReturnRawElementProvider)(HWND, WPARAM, LPARAM, IRawElementProviderSimple *);
   HRESULT (WINAPI *HostProviderFromHwnd)(HWND, IRawElementProviderSimple **);
   HRESULT (WINAPI *RaiseNotificationEvent)(IRawElementProviderSimple *, NotificationKind, NotificationProcessing, BSTR, BSTR);
+  void (WINAPI *DisconnectProvider)(IRawElementProviderSimple *);
 
   UiaApi() :
     module(nullptr), ClientsAreListening(nullptr), ReturnRawElementProvider(nullptr),
-    HostProviderFromHwnd(nullptr), RaiseNotificationEvent(nullptr)
+    HostProviderFromHwnd(nullptr), RaiseNotificationEvent(nullptr), DisconnectProvider(nullptr)
   {}
 
   bool Load() {
@@ -53,6 +55,8 @@ struct UiaApi {
       GetProcAddress(module, "UiaHostProviderFromHwnd"));
     RaiseNotificationEvent = reinterpret_cast<HRESULT (WINAPI *)(IRawElementProviderSimple *, NotificationKind, NotificationProcessing, BSTR, BSTR)>(
       GetProcAddress(module, "UiaRaiseNotificationEvent"));
+    DisconnectProvider = reinterpret_cast<void (WINAPI *)(IRawElementProviderSimple *)>(
+      GetProcAddress(module, "UiaDisconnectProvider"));
     return Available();
   }
 
@@ -180,9 +184,50 @@ private:
   HWND window;
 };
 
+// UIA only delivers notifications from a provider that is owned by a top-level
+// window of the calling process. A parentless popup created off-screen is not
+// associated with the application and its notifications are dropped, which is
+// why a game could never speak through this driver. Pick a host the same way
+// Prism does: the foreground window if it is ours, otherwise our active window,
+// otherwise the first visible window we own.
+bool IsUsableHostWindow(HWND window) {
+  if (!window || !IsWindow(window) || !IsWindowVisible(window) || IsIconic(window)) return false;
+  DWORD process = 0;
+  GetWindowThreadProcessId(window, &process);
+  if (process != GetCurrentProcessId()) return false;
+  if (GetWindowLongW(window, GWL_EXSTYLE) & WS_EX_TOOLWINDOW) return false;
+  if (window == GetConsoleWindow()) return false;
+  wchar_t className[256] = {};
+  if (GetClassNameW(window, className, ARRAYSIZE(className)) == 0) return false;
+  return std::wcscmp(className, L"ConsoleWindowClass") != 0 &&
+    std::wcscmp(className, L"CASCADIA_HOSTING_WINDOW_CLASS") != 0;
+}
+
+HWND RootOwnerOf(HWND window) {
+  const HWND root = GetAncestor(window, GA_ROOTOWNER);
+  return root ? root : window;
+}
+
+HWND FindHostWindow() {
+  const HWND foreground = GetForegroundWindow();
+  if (IsUsableHostWindow(foreground)) return RootOwnerOf(foreground);
+  const HWND active = GetActiveWindow();
+  if (IsUsableHostWindow(active)) return RootOwnerOf(active);
+  HWND found = nullptr;
+  EnumWindows([](HWND window, LPARAM param) -> BOOL {
+    if (IsUsableHostWindow(window)) {
+      *reinterpret_cast<HWND *>(param) = window;
+      return FALSE;
+    }
+    return TRUE;
+  }, reinterpret_cast<LPARAM>(&found));
+  return found ? RootOwnerOf(found) : nullptr;
+}
+
 } // namespace
 
 struct TolkUiaSession {
+  HWND host;
   HWND window;
   UiaProvider *provider;
   HANDLE thread;
@@ -190,7 +235,7 @@ struct TolkUiaSession {
   std::mutex lock;
   std::deque<UiaCommand> queue;
 
-  TolkUiaSession() : window(nullptr), provider(nullptr), thread(nullptr), ready(nullptr) {}
+  TolkUiaSession() : host(nullptr), window(nullptr), provider(nullptr), thread(nullptr), ready(nullptr) {}
 };
 
 namespace {
@@ -222,6 +267,8 @@ LRESULT CALLBACK UiaWindowProc(HWND window, UINT message, WPARAM wParam, LPARAM 
       return 0;
     case WM_TOLK_UIA_SHUTDOWN:
       PostQuitMessage(0);
+      return 0;
+    case WM_DESTROY:
       return 0;
     default:
       break;
@@ -255,7 +302,12 @@ unsigned long __stdcall ScreenReaderDriverUIA::ThreadProc(void *self) {
 
 void ScreenReaderDriverUIA::RunSession() {
   TolkUiaSession *current = session;
-  CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+  const HRESULT comResult = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_SPEED_OVER_MEMORY);
+  const bool uninitCom = SUCCEEDED(comResult);
+  if (FAILED(comResult) && comResult != RPC_E_CHANGED_MODE) {
+    if (current->ready) SetEvent(current->ready);
+    return;
+  }
   const std::wstring className = L"TolkUIAProviderWindow_" +
     std::to_wstring(static_cast<unsigned long long>(reinterpret_cast<unsigned long long>(this)));
   HINSTANCE instance = GetModuleHandleW(nullptr);
@@ -264,10 +316,14 @@ void ScreenReaderDriverUIA::RunSession() {
   windowClass.lpfnWndProc = UiaWindowProc;
   windowClass.hInstance = instance;
   windowClass.lpszClassName = className.c_str();
-  if (RegisterClassExW(&windowClass)) {
+  // The notification provider is created as a popup owned by one of the
+  // application's own top-level windows so UIA clients associate it with the
+  // application (and with the game window in a game).
+  current->host = FindHostWindow();
+  if (current->host && RegisterClassExW(&windowClass)) {
     current->window = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
       className.c_str(), L"Tolk UIA Notification", WS_POPUP, 0, 0, 0, 0,
-      nullptr, nullptr, instance, nullptr);
+      current->host, nullptr, instance, nullptr);
   }
   if (current->window) {
     SetWindowLongPtrW(current->window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(current));
@@ -276,6 +332,7 @@ void ScreenReaderDriverUIA::RunSession() {
   if (current->ready) SetEvent(current->ready);
   if (current->window) {
     MSG message;
+    PeekMessageW(&message, nullptr, 0, 0, PM_NOREMOVE);
     while (GetMessageW(&message, nullptr, 0, 0) > 0) {
       TranslateMessage(&message);
       DispatchMessageW(&message);
@@ -283,17 +340,25 @@ void ScreenReaderDriverUIA::RunSession() {
     if (IsWindow(current->window)) DestroyWindow(current->window);
     current->window = nullptr;
     if (current->provider) {
+      if (Api().DisconnectProvider) Api().DisconnectProvider(current->provider);
       current->provider->Release();
       current->provider = nullptr;
     }
     UnregisterClassW(className.c_str(), instance);
   }
-  CoUninitialize();
+  if (uninitCom) CoUninitialize();
 }
 
 bool ScreenReaderDriverUIA::EnsureSession() {
-  if (session && session->window) return true;
+  if (session) {
+    if (session->window && IsWindow(session->host)) return true;
+    // The owning window is gone or the session never came up; rebuild it.
+    StopSession();
+  }
   if (disabled) return false;
+  // Without one of our own top-level windows there is nothing UIA can attach
+  // the notification provider to, so stay inactive and let Tolk fall through.
+  if (!FindHostWindow()) return false;
   session = new TolkUiaSession();
   session->ready = CreateEventW(nullptr, TRUE, FALSE, nullptr);
   if (session->ready) {
