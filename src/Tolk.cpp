@@ -197,15 +197,23 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Load() {
     TOLK_LOG_INFO("ZDCloud: using the 32-bit bridge helper");
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"ZDCloud", true, false, TolkBridgeBackendZDCloud));
 #endif
-    // Japanese and Korean screen readers (regional market). They ship 64-bit
-    // code but no ARM64 build, so an ARM64 build drives them through the
-    // 64-bit helper like the other local readers.
-#if TOLK_CAN_LOAD_X86 || TOLK_CAN_LOAD_X64
+    // Japanese screen reader (regional market). PC-Talker's PCTKUSR.dll is
+    // 32-bit only, so an x86 build loads it in-process and every other
+    // architecture drives it through the embedded 32-bit helper.
+#if TOLK_CAN_LOAD_X86
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverPCTalker>());
+#else
+    TOLK_LOG_INFO("PC-Talker: using the 32-bit bridge helper");
+    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"PC-Talker", true, true, TolkBridgeBackendPCTalker));
+#endif
+    // Korean screen reader (regional market). Sense Reader talks to its
+    // out-of-process COM server, which works from every architecture, so only
+    // ARM64 needs the embedded 64-bit helper for the in-process x64
+    // components.
+#if TOLK_CAN_LOAD_X86 || TOLK_CAN_LOAD_X64
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverSenseReader>());
 #else
-    TOLK_LOG_INFO("PC-Talker/Sense Reader: using the 64-bit bridge helper");
-    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"PC-Talker", true, true, TolkBridgeBackendPCTalker));
+    TOLK_LOG_INFO("Sense Reader: using the 64-bit bridge helper");
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"Sense Reader", true, false, TolkBridgeBackendSenseReader));
 #endif
     // Generic Windows backend: UIA notifications. It activates while a UIA

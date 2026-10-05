@@ -93,10 +93,10 @@ if(MSVC)
   )
 endif()
 # --- Cross-architecture bridge for backends without a module for this arch ---
-# Some backends only ship a DLL for another architecture: SuperNova and ZDCloud
-# are 32-bit only, while System Access, ZDSR and BoyPCReader ship 32-bit and
-# 64-bit builds but no ARM64 build. A build that cannot load such a module
-# in-process drives it through a small helper process of the matching
+# Some backends only ship a DLL for another architecture: SuperNova, ZDCloud
+# and PC-Talker are 32-bit only, while System Access, ZDSR and BoyPCReader ship
+# 32-bit and 64-bit builds but no ARM64 build. A build that cannot load such a
+# module in-process drives it through a small helper process of the matching
 # architecture. The helper image and the modules it loads are embedded into
 # Tolk.dll as resources and extracted to a per-user cache directory at run
 # time, so no extra file is shipped next to Tolk.dll. Keep the resource ids and
@@ -186,10 +186,10 @@ add_custom_command(TARGET Tolk POST_BUILD
 # only the bridge helper image is kept inside Tolk.dll.
 file(GLOB TOLK_LIB_FILES "${TOLK_LIBS_DIR}/*")
 set(TOLK_EXTRA_LIB_FILES "")
-# The 32-bit only backends (SuperNova, ZDCloud) are driven through the 32-bit
-# helper on every non-x86 build, so their 32-bit modules ship unchanged. A
-# 32-bit module whose backend also has a 64-bit build is not duplicated: the
-# 64-bit module below is the one that backend uses.
+# The 32-bit only backends (SuperNova, ZDCloud, PC-Talker) are driven through
+# the 32-bit helper on every non-x86 build, so their 32-bit modules ship
+# unchanged. A 32-bit module whose backend also has a 64-bit build is not
+# duplicated: the 64-bit module below is the one that backend uses.
 if(NOT TOLK_ARCH STREQUAL "x86")
   file(GLOB TOLK_EXTRA_LIB_FILES "${CMAKE_SOURCE_DIR}/libs/x86/*")
   foreach(TOLK_SHADOWED_X86_MODULE

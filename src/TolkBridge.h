@@ -14,10 +14,11 @@
 // Architecture
 //
 // Tolk can be built as x86, x64, ARM64 and ARM64EC. Some backends only ship a
-// DLL for one architecture (SuperNova and ZDCloud are 32-bit only, System
-// Access, ZDSR and BoyPCReader ship 32-bit and 64-bit builds but no ARM64
-// build). A build that cannot load such a module in-process drives it through
-// a small helper process of the matching architecture (see src/bridge) and
+// DLL for one architecture (SuperNova, ZDCloud and PC-Talker are 32-bit only,
+// System Access, ZDSR and BoyPCReader ship 32-bit and 64-bit builds but no
+// ARM64 build). A build that cannot load such a module in-process drives it
+// through a small helper process of the matching architecture (see
+// src/bridge) and
 // talks to it over a named pipe. The helper image is embedded into Tolk.dll
 // as a resource and extracted at run time, so no extra file is shipped next
 // to Tolk.dll.

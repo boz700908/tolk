@@ -344,6 +344,7 @@ TolkBridgeArch TolkBridgeArchForBackend(TolkBridgeBackend backend) {
     // No 64-bit module exists: fall back to the 32-bit module.
     case TolkBridgeBackendSNova:
     case TolkBridgeBackendZDCloud:
+    case TolkBridgeBackendPCTalker:
       return TolkBridgeArchX86;
     // A 64-bit module exists (or the backend is COM-only), so use 64-bit.
     case TolkBridgeBackendNVDA:
@@ -353,7 +354,6 @@ TolkBridgeArch TolkBridgeArchForBackend(TolkBridgeBackend backend) {
     case TolkBridgeBackendZDSR:
     case TolkBridgeBackendBOY:
     case TolkBridgeBackendZT:
-    case TolkBridgeBackendPCTalker:
     case TolkBridgeBackendSenseReader:
     default:
       return TolkBridgeArchX64;

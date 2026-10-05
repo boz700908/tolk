@@ -108,15 +108,19 @@ bool ScreenReaderDriverZDCloud::Silence() {
   return true;
 }
 // Initial() only proves that the module accepted the credentials; the 之多云
-// client can still be closed. SpeakTry is the one export that goes through RPC
-// and reports the real state: it returns 0 while the client is running and a
-// non-zero status (10000, the "no reply" default) when it is not. An empty
-// string is a no-op for speech but still performs the round trip, so it makes
-// a safe probe. When the export is missing (older module) the driver falls
+// client can still be closed. SpeakAsync/SpeakInsert never report that (they
+// return 0 for an accepted call), but SpeakTry answers with the module's own
+// status: 0 when the client accepted the text, 3 while it is busy, and 10000 -
+// the module's "no reply" default - when the client is not running at all. An
+// empty string is a no-op for speech but still performs the round trip, so it
+// makes a safe probe; only the no-reply code (and the not-initialized code 1)
+// count as "client not running", because other non-zero codes still mean the
+// client answered. When the export is missing (older module) the driver falls
 // back to its previous "always active" behaviour.
 bool ScreenReaderDriverZDCloud::ClientRunning() {
   if (!speakTry) return true;
-  return speakTry(L"", 0) == 0;
+  const int status = speakTry(L"", 0);
+  return status != 10000 && status != 1;
 }
 bool ScreenReaderDriverZDCloud::IsActive() {
   // Performance: cache the result like the other drivers (100 ms timeout).
