@@ -30,11 +30,13 @@ private:
   typedef void (__stdcall *ZDCloud_Void)();
   static std::wstring DecodeSecret(const unsigned char *bytes, size_t size, unsigned char key);
   bool Initialize();
+  bool ClientRunning();
 private:
   HMODULE controller;
   ZDCloud_Initial initial;
   ZDCloud_Speak speakAsync;
   ZDCloud_Speak speakInsert;
+  ZDCloud_Speak speakTry;
   ZDCloud_Void stopSpeak;
   ZDCloud_Void uninitial;
   bool initialized;

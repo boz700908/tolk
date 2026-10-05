@@ -19,6 +19,7 @@ ScreenReaderDriverZDCloud::ScreenReaderDriverZDCloud() :
   initial(nullptr),
   speakAsync(nullptr),
   speakInsert(nullptr),
+  speakTry(nullptr),
   stopSpeak(nullptr),
   uninitial(nullptr),
   initialized(false)
@@ -53,6 +54,10 @@ bool ScreenReaderDriverZDCloud::Initialize() {
     initial     = (ZDCloud_Initial)GetProcAddress(controller, "Initial");
     speakAsync  = (ZDCloud_Speak)GetProcAddress(controller, "SpeakAsync");
     speakInsert = (ZDCloud_Speak)GetProcAddress(controller, "SpeakInsert");
+    // SpeakTry is the only export that reports whether the 之多云 client is
+    // actually running; SpeakAsync/SpeakInsert always report success. It is
+    // optional so that an older ZDCloudAPI.dll still works (without the probe).
+    speakTry    = (ZDCloud_Speak)GetProcAddress(controller, "SpeakTry");
     stopSpeak   = (ZDCloud_Void)GetProcAddress(controller, "StopSpeak");
     uninitial   = (ZDCloud_Void)GetProcAddress(controller, "UnInitial");
     if (!initial || !speakAsync || !speakInsert) {
@@ -60,6 +65,7 @@ bool ScreenReaderDriverZDCloud::Initialize() {
       initial = nullptr;
       speakAsync = nullptr;
       speakInsert = nullptr;
+      speakTry = nullptr;
       stopSpeak = nullptr;
       uninitial = nullptr;
       FreeLibrary(controller);
@@ -85,7 +91,10 @@ bool ScreenReaderDriverZDCloud::Initialize() {
 }
 bool ScreenReaderDriverZDCloud::Speak(const wchar_t *str, bool interrupt) {
   if (!str) return false;
-  if (!initialized && !Initialize()) return false;
+  // The module reports success for SpeakAsync/SpeakInsert even when the 之多云
+  // client is closed, so confirm the client is running first and fail instead
+  // of silently dropping the text: Tolk then moves on to another driver.
+  if (!IsActive()) return false;
   if (interrupt) {
     if (stopSpeak) stopSpeak();
     return speakAsync ? (speakAsync(str, 1) == 0) : false;
@@ -98,6 +107,25 @@ bool ScreenReaderDriverZDCloud::Silence() {
   stopSpeak();
   return true;
 }
+// Initial() only proves that the module accepted the credentials; the 之多云
+// client can still be closed. SpeakTry is the one export that goes through RPC
+// and reports the real state: it returns 0 while the client is running and a
+// non-zero status (10000, the "no reply" default) when it is not. An empty
+// string is a no-op for speech but still performs the round trip, so it makes
+// a safe probe. When the export is missing (older module) the driver falls
+// back to its previous "always active" behaviour.
+bool ScreenReaderDriverZDCloud::ClientRunning() {
+  if (!speakTry) return true;
+  return speakTry(L"", 0) == 0;
+}
 bool ScreenReaderDriverZDCloud::IsActive() {
-  return initialized;
+  // Performance: cache the result like the other drivers (100 ms timeout).
+  const DWORD currentTime = GetTickCount();
+  if ((currentTime - lastIsActiveTime) < CACHE_TIMEOUT_MS) return cachedIsActive;
+  cachedIsActive = false;
+  if (initialized || Initialize()) {
+    cachedIsActive = ClientRunning();
+  }
+  lastIsActiveTime = currentTime;
+  return cachedIsActive;
 }
