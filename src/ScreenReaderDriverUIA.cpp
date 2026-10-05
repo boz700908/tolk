@@ -15,6 +15,8 @@
 #include <deque>
 #include <mutex>
 #include <string>
+#include <tlhelp32.h>
+#include <cstring>
 
 namespace {
 
@@ -170,8 +172,11 @@ public:
       if (activity) SysFreeString(activity);
       return;
     }
+    // The important variants are the ones screen readers act on: NVDA reports
+    // ImportantAll/ImportantMostRecent notifications and ignores the plain
+    // variants, while Narrator reports all of them.
     Api().RaiseNotificationEvent(this, NotificationKind_ActionCompleted,
-      interrupt ? NotificationProcessing_ImportantMostRecent : NotificationProcessing_All,
+      interrupt ? NotificationProcessing_ImportantMostRecent : NotificationProcessing_ImportantAll,
       content, activity);
     SysFreeString(content);
     SysFreeString(activity);
@@ -222,6 +227,52 @@ HWND FindHostWindow() {
     return TRUE;
   }, reinterpret_cast<LPARAM>(&found));
   return found ? RootOwnerOf(found) : nullptr;
+}
+
+bool ProcessExists(const wchar_t *name) {
+  HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+  if (snapshot == INVALID_HANDLE_VALUE) return false;
+  PROCESSENTRY32W entry = {};
+  entry.dwSize = sizeof(entry);
+  bool found = false;
+  if (Process32FirstW(snapshot, &entry)) {
+    do {
+      if (_wcsicmp(entry.szExeFile, name) == 0) {
+        found = true;
+        break;
+      }
+    } while (Process32NextW(snapshot, &entry));
+  }
+  CloseHandle(snapshot);
+  return found;
+}
+
+// A running UIA consumer that actually turns notification events into speech
+// has to exist for this backend to be useful. Nothing in the UIA API tells us
+// whether a listener consumes events, and both the Windows screen-reader flag
+// and UiaClientsAreListening can stay set after the reader that raised them has
+// exited, so the flag alone would latch the driver on forever. Narrator is the
+// one mainstream reader that uses UIA notifications and has no dedicated Tolk
+// driver; NVDA and the others have their own, so they win detection first
+// anyway. TOLK_UIA_ALWAYS=1 bypasses the process check for testing with another
+// notification consumer.
+bool UiaConsumerRunning() {
+  static DWORD lastCheck = 0;
+  static bool cached = false;
+  const DWORD now = GetTickCount();
+  if (lastCheck != 0 && (now - lastCheck) < 1000) return cached;
+  cached = ProcessExists(L"Narrator.exe");
+  lastCheck = now;
+  return cached;
+}
+
+bool UiaAlwaysEnabled() {
+  static const bool forced = []() {
+    wchar_t value[8] = {};
+    const DWORD length = GetEnvironmentVariableW(L"TOLK_UIA_ALWAYS", value, ARRAYSIZE(value));
+    return length > 0 && value[0] != L'0';
+  }();
+  return forced;
 }
 
 } // namespace
@@ -366,14 +417,14 @@ bool ScreenReaderDriverUIA::EnsureSession() {
   }
   if (!session->ready || !session->thread) {
     StopSession();
-    disabled = true;
     return false;
   }
   WaitForSingleObject(session->ready, 5000);
   if (!session->window) {
-    TOLK_LOG_WARN("UIA: could not create the notification window, driver disabled");
+    // The host window may not exist yet (a game that is still starting up), so
+    // stay enabled and try again on the next detection round.
+    TOLK_LOG_WARN("UIA: could not create the notification window, retrying later");
     StopSession();
-    disabled = true;
     return false;
   }
   TOLK_LOG_INFO("UIA: notification provider window created");
@@ -423,7 +474,7 @@ bool ScreenReaderDriverUIA::IsActive() {
   if (!disabled) {
     BOOL screenReader = FALSE;
     if (SystemParametersInfoW(SPI_GETSCREENREADER, 0, &screenReader, 0) && screenReader != FALSE &&
-        Api().ClientsAreListening()) {
+        Api().ClientsAreListening() && (UiaAlwaysEnabled() || UiaConsumerRunning())) {
       cachedIsActive = EnsureSession();
     }
   }

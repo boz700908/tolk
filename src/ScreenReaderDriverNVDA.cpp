@@ -9,6 +9,7 @@
 // but we don't use these in order to support running even if the DLL is missing.
 #include "ScreenReaderDriverNVDA.h"
 #include "TolkDebug.h"
+#include "TolkLibrary.h"
 ScreenReaderDriverNVDA::ScreenReaderDriverNVDA() :
   ScreenReaderDriver(L"NVDA", true, true),
   controller(nullptr),
@@ -22,16 +23,16 @@ ScreenReaderDriverNVDA::ScreenReaderDriverNVDA() :
 // ARM64EC client next to the ARM64 one, so no emulated client is needed.
 #if defined(_M_ARM64EC)
   TOLK_LOG_INFO("NVDA: Loading ARM64EC native nvdaControllerClientARM64EC.dll");
-  controller = LoadLibrary(L"nvdaControllerClientARM64EC.dll");
+  controller = TolkLoadLibrary(L"nvdaControllerClientARM64EC.dll");
 #elif defined(_M_ARM64)
   TOLK_LOG_INFO("NVDA: Loading ARM64 native nvdaControllerClientARM64.dll");
-  controller = LoadLibrary(L"nvdaControllerClientARM64.dll");
+  controller = TolkLoadLibrary(L"nvdaControllerClientARM64.dll");
 #elif defined(_WIN64)
   TOLK_LOG_INFO("NVDA: Loading 64-bit nvdaControllerClient64.dll");
-  controller = LoadLibrary(L"nvdaControllerClient64.dll");
+  controller = TolkLoadLibrary(L"nvdaControllerClient64.dll");
 #else
   TOLK_LOG_INFO("NVDA: Loading 32-bit nvdaControllerClient32.dll");
-  controller = LoadLibrary(L"nvdaControllerClient32.dll");
+  controller = TolkLoadLibrary(L"nvdaControllerClient32.dll");
 #endif
   if (!controller) {
     TOLK_LOG_WARN("NVDA: DLL not found, driver disabled");

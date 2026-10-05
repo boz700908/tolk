@@ -8,6 +8,7 @@
 // header, so the exports are resolved dynamically, like the other drivers.
 #include "ScreenReaderDriverZDCloud.h"
 #include "TolkDebug.h"
+#include "TolkLibrary.h"
 // Obfuscated application credentials (XOR encoded, decoded at runtime) so that
 // the published binary does not contain the keys as plain text.
 static const unsigned char ZDCLOUD_APP_KEY[] = { 0x0A, 0x5E, 0x5C, 0x5F, 0x12, 0x1F, 0x09, 0x1F, 0x59, 0x5E };
@@ -44,7 +45,7 @@ bool ScreenReaderDriverZDCloud::Initialize() {
 #else
   if (!controller) {
     TOLK_LOG_INFO("ZDCloud: Loading 32-bit ZDCloudAPI.dll");
-    controller = LoadLibrary(L"ZDCloudAPI.dll");
+    controller = TolkLoadLibrary(L"ZDCloudAPI.dll");
     if (!controller) {
       TOLK_LOG_WARN("ZDCloud: DLL not found, driver disabled");
       return false;

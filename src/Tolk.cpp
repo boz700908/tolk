@@ -202,12 +202,13 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Load() {
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"PC-Talker", true, true, TolkBridgeBackendPCTalker));
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"Sense Reader", true, false, TolkBridgeBackendSenseReader));
 #endif
-    // Generic Windows backend: UIA notifications. It only activates while a
-    // screen reader has set the Windows screen-reader flag, a UIA client is
-    // listening and the application owns a top-level window to host the
-    // provider on, so it ranks below the named screen readers and above the
-    // fallback speech engines. It is never latched onto (see
-    // DetectCurrentScreenReader) because those signals can outlive the reader.
+    // Generic Windows backend: UIA notifications. It activates while a screen
+    // reader has set the Windows screen-reader flag, a UIA client is listening,
+    // a UIA consumer is actually running (Narrator) and the application owns a
+    // top-level window to host the provider on. It ranks below the named screen
+    // readers and above the fallback speech engines, and it is never latched
+    // onto (see DetectCurrentScreenReader) because the flag and the listening
+    // bit can outlive the reader that raised them.
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverUIA>());
     g_uiaDriver = g_screenReaderDrivers.back().get();
     // Fallback speech engines. Like SAPI, OneCore does not depend on the

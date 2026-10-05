@@ -9,6 +9,7 @@
 // but we don't use these in order to support running even if the DLL is missing.
 #include "ScreenReaderDriverZDSR.h"
 #include "TolkDebug.h"
+#include "TolkLibrary.h"
 ScreenReaderDriverZDSR::ScreenReaderDriverZDSR() :
   ScreenReaderDriver(L"ZDSR", true, true),
   controller(nullptr),
@@ -20,10 +21,10 @@ ScreenReaderDriverZDSR::ScreenReaderDriverZDSR() :
 {
 #ifdef _WIN64
   TOLK_LOG_INFO("ZDSR: Loading 64-bit ZDSRAPI_x64.dll");
-  controller = LoadLibrary(L"ZDSRAPI_x64.dll");
+  controller = TolkLoadLibrary(L"ZDSRAPI_x64.dll");
 #else
   TOLK_LOG_INFO("ZDSR: Loading 32-bit ZDSRAPI.dll");
-  controller = LoadLibrary(L"ZDSRAPI.dll");
+  controller = TolkLoadLibrary(L"ZDSRAPI.dll");
 #endif
   if (!controller) {
     TOLK_LOG_WARN("ZDSR: DLL not found, driver disabled");

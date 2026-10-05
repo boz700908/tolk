@@ -7,6 +7,7 @@
  */
 #include "ScreenReaderDriverPCTalker.h"
 #include "TolkDebug.h"
+#include "TolkLibrary.h"
 #include <functional>
 
 // Values from the PC-Talker vendor header.
@@ -143,7 +144,7 @@ private:
 
 static PcTalkerApi *LoadPcTalker() {
   PcTalkerApi *api = new PcTalkerApi();
-  api->library = LoadLibraryW(L"PCTKUSR.dll");
+  api->library = TolkLoadLibrary(L"PCTKUSR.dll");
   if (!api->library) {
     TOLK_LOG_WARN("PCTalker: PCTKUSR.dll not found, driver disabled");
     delete api;

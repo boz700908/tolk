@@ -1,6 +1,7 @@
 set(TOLK_SOURCES
   Tolk.cpp
   TolkBridge.cpp
+  TolkLibrary.cpp
   ScreenReaderDriverBOY.cpp
   ScreenReaderDriverJAWS.cpp
   ScreenReaderDriverNVDA.cpp
@@ -24,6 +25,7 @@ set(TOLK_HEADERS
   TolkVersion.h
   TolkDebug.h
   TolkBridge.h
+  TolkLibrary.h
   ScreenReaderDriver.h
   ScreenReaderDriverBridged.h
   ScreenReaderDriverBOY.h

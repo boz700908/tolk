@@ -7,6 +7,7 @@
  */
 #include "ScreenReaderDriverSA.h"
 #include "TolkDebug.h"
+#include "TolkLibrary.h"
 ScreenReaderDriverSA::ScreenReaderDriverSA() :
   ScreenReaderDriver(L"System Access", true, true),
   controller(nullptr),
@@ -17,10 +18,10 @@ ScreenReaderDriverSA::ScreenReaderDriverSA() :
 {
 #ifdef _WIN64
   TOLK_LOG_INFO("SA: Loading 64-bit SAAPI64.dll");
-  controller = LoadLibrary(L"SAAPI64.dll");
+  controller = TolkLoadLibrary(L"SAAPI64.dll");
 #else
   TOLK_LOG_INFO("SA: Loading 32-bit SAAPI32.dll");
-  controller = LoadLibrary(L"SAAPI32.dll");
+  controller = TolkLoadLibrary(L"SAAPI32.dll");
 #endif
   if (!controller) {
     TOLK_LOG_WARN("SA: DLL not found, driver disabled");

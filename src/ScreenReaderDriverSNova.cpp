@@ -7,6 +7,7 @@
  */
 #include "ScreenReaderDriverSNova.h"
 #include "TolkDebug.h"
+#include "TolkLibrary.h"
 #define DOLACCESS_NONE 0
 #define DOLACCESS_HAL 1
 #define DOLACCESS_SUPERNOVA 4
@@ -32,7 +33,7 @@ ScreenReaderDriverSNova::ScreenReaderDriverSNova() :
 {
 #ifndef _WIN64
   TOLK_LOG_INFO("SNova: Loading 32-bit dolapi32.dll");
-  controller = LoadLibrary(L"dolapi32.dll");
+  controller = TolkLoadLibrary(L"dolapi32.dll");
   if (!controller) {
     TOLK_LOG_WARN("SNova: DLL not found, driver disabled");
     return;

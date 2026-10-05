@@ -12,6 +12,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # driver sources as Tolk.dll, so the two can never drift apart.
 add_executable(TolkBridge
   main.cpp
+  ../TolkLibrary.cpp
   ../ScreenReaderDriverNVDA.cpp
   ../ScreenReaderDriverJAWS.cpp
   ../ScreenReaderDriverWE.cpp

@@ -9,6 +9,7 @@
 // but we don't use these in order to support running even if the DLL is missing.
 #include "ScreenReaderDriverBOY.h"
 #include "TolkDebug.h"
+#include "TolkLibrary.h"
 #include <windows.h>
 ScreenReaderDriverBOY* ScreenReaderDriverBOY::g_instance = nullptr;
 void __stdcall ScreenReaderDriverBOY::SpeakCompleteCallback(int reason)
@@ -35,10 +36,10 @@ ScreenReaderDriverBOY::ScreenReaderDriverBOY()
     g_instance = this;
 #ifdef _WIN64
     TOLK_LOG_INFO("BOY: Loading 64-bit byctrl-x64.dll");
-    controller = LoadLibraryW(L"byctrl-x64.dll");
+    controller = TolkLoadLibrary(L"byctrl-x64.dll");
 #else
     TOLK_LOG_INFO("BOY: Loading 32-bit byctrl.dll");
-    controller = LoadLibraryW(L"byctrl.dll");
+    controller = TolkLoadLibrary(L"byctrl.dll");
 #endif
     if (!controller) {
         TOLK_LOG_WARN("BOY: DLL not found, driver disabled");
