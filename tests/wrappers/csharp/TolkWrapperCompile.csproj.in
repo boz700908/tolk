@@ -5,6 +5,7 @@
     <RootNamespace>DavyKager</RootNamespace>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="@TOLK_UNITY_BINDING@" />

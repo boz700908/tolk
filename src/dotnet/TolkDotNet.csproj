@@ -9,6 +9,7 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <Deterministic>true</Deterministic>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
