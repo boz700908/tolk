@@ -204,40 +204,46 @@ build.bat release --x64 --wrapper-tests   # Also compile the wrapper bindings (t
 
 ```
 dist/
-├── x86/
-│   ├── Debug/      # 32-bit x86 Debug build (Tolk.dll, drivers, PDB symbols)
-│   └── Release/    # 32-bit x86 Release build
-├── x64/
-│   ├── Debug/      # 64-bit x64 Debug build
-│   └── Release/    # 64-bit x64 Release build
-├── arm64/
-│   ├── Debug/      # ARM64 Debug build (NVDA native, other backends via the bridge)
-│   └── Release/    # ARM64 Release build
-├── arm64ec/
-│   ├── Debug/      # ARM64EC Debug build (x64 modules in-process, 32-bit backends via the bridge)
-│   └── Release/    # ARM64EC Release build
-├── wrappers/       # Shared language wrappers (all architectures)
-│   ├── README.html # Wrapper overview
-│   ├── c++/        # Native C/C++ import kit (Tolk.h + per-architecture Tolk.lib)
-│   ├── dotnet/     # .NET wrapper (TolkDotNet.dll)
-│   ├── java/       # Java wrapper (Tolk.jar)
-│   ├── python/     # Python wrapper (Tolk.py)
-│   ├── autoit/     # AutoIt wrapper (Tolk.au3)
-│   ├── purebasic/  # PureBasic wrapper (Tolk.pb)
-│   ├── lua/        # Lua / LuaJIT wrapper (Tolk.lua)
-│   ├── java-iodine/  # Iodine Java wrapper
-│   ├── oxygene/    # Oxygene wrapper
-│   ├── swift-silver/ # Silver Swift wrapper
-│   └── game-engines/ # Unity, Unreal, Godot and GameMaker packages
+├── x86/            # 32-bit x86
+│   ├── Debug/      # Tolk.dll, Tolk.lib, Tolk.exp, TolkGml.dll, Tolk.pdb, screen reader client modules
+│   └── Release/    # the same, without Tolk.pdb
+├── x64/            # 64-bit x64
+│   ├── Debug/      # Tolk.dll, Tolk.lib, Tolk.exp, TolkGml.dll, Tolk.pdb, screen reader client modules
+│   └── Release/    # the same, without Tolk.pdb
+├── arm64/          # ARM64 (NVDA native, other backends via the bridge)
+│   ├── Debug/      # Tolk.dll, Tolk.lib, Tolk.exp, TolkGml.dll, Tolk.pdb, screen reader client modules
+│   └── Release/    # the same, without Tolk.pdb
+├── arm64ec/        # ARM64EC (x64 modules in-process, 32-bit backends via the bridge)
+│   ├── Debug/      # Tolk.dll, Tolk.lib, Tolk.exp, TolkGml.dll, Tolk.pdb, screen reader client modules
+│   └── Release/    # the same, without Tolk.pdb
+├── wrappers/       # Shared language wrappers (identical for every architecture)
+│   ├── README.html            # Wrapper overview (source: contrib/README.md)
+│   ├── c++/                   # Native C/C++ import kit (source: contrib/c++/README.md)
+│   │   ├── README.html        # Import instructions
+│   │   ├── include/
+│   │   │   ├── Tolk.h         # Public header, identical for every architecture
+│   │   │   └── TolkVersion.h  # Version macros
+│   │   └── lib/<arch>/Tolk.lib  # Import library for each architecture
+│   ├── dotnet/TolkDotNet.dll  # .NET wrapper (C# and VB.NET)
+│   ├── java/Tolk.jar          # Java wrapper (JNI)
+│   ├── python/                # Python wrapper (Tolk.py plus bytecode)
+│   ├── autoit/Tolk.au3        # AutoIt wrapper
+│   ├── purebasic/Tolk.pb      # PureBasic wrapper
+│   ├── lua/Tolk.lua           # Lua / LuaJIT wrapper (FFI)
+│   ├── java-iodine/           # Iodine Java wrapper and sample
+│   ├── oxygene/               # Oxygene wrapper and sample
+│   ├── swift-silver/          # Silver Swift wrapper and sample
+│   └── game-engines/          # Unity, Unreal, Godot and GameMaker packages
+│       ├── README.html        # Engine binding overview
 │       └── gamemaker/bin/<arch>/TolkGml.dll  # prebuilt shim per architecture
-├── dotnet/         # Legacy .NET wrapper (backward compatibility)
-├── java/           # Legacy Java wrapper (backward compatibility)
-├── docs/           # Documentation
-├── DEBUG_FEATURES.txt
-└── LICENSE files
+├── dotnet/TolkDotNet.dll      # Legacy .NET wrapper location (backward compatibility)
+├── java/Tolk.jar              # Legacy Java wrapper location (backward compatibility)
+├── docs/README.html           # This manual
+├── DEBUG_FEATURES.txt         # Debug build notes
+└── LICENSE files              # LICENSE.txt and LICENSE-NVDA.txt
 ```
 
-Every architecture folder also carries the prebuilt GameMaker shim `TolkGml.dll` next to `Tolk.dll`, and `dist/wrappers` repeats it per architecture under `game-engines/gamemaker/bin/<arch>` so that binding works without a compiler. Wrapper documentation ships as HTML only, exactly like this README, and the GameMaker shim ships only as the compiled `TolkGml.dll`; their Markdown and C sources stay in the repository.
+Every architecture folder also carries the import library `Tolk.lib`, its export file `Tolk.exp`, and the prebuilt GameMaker shim `TolkGml.dll` next to `Tolk.dll`; only Debug builds add `Tolk.pdb`. The public header and one `Tolk.lib` per architecture are also collected under `wrappers/c++`, and `dist/wrappers` repeats the GameMaker shim per architecture under `game-engines/gamemaker/bin/<arch>` so that binding works without a compiler. Wrapper documentation ships as HTML only, exactly like this README, and the GameMaker shim ships only as the compiled `TolkGml.dll`; their Markdown and C sources stay in the repository.
 
 ## Debugging and Logging
 

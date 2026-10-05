@@ -38,6 +38,9 @@ documentation as HTML, and adds things that are not in the repository:
 * `c++/include/Tolk.h` plus `c++/lib/<arch>/Tolk.lib` form the native import
   kit, so C and C++ clients can link against `Tolk.dll` without a source
   checkout;
+* `dotnet/TolkDotNet.dll` and `java/Tolk.jar` keep the legacy per-language
+  wrapper locations for tools that still look them up there; the current
+  copies live under `wrappers/dotnet` and `wrappers/java`;
 * `game-engines/gamemaker/bin/<arch>/TolkGml.dll` holds the prebuilt
   conversion shim for each architecture, so the GameMaker binding can be used
   without a compiler. The shim source and `game-engines/gamemaker/build.bat`

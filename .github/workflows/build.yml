@@ -127,6 +127,11 @@ jobs:
               copy /Y "artifacts\tolk-%%A-Release\Tolk.lib" "dist\wrappers\c++\lib\%%A\Tolk.lib" >nul
             )
           )
+          :: Legacy per-language wrapper locations (backward compatibility)
+          if not exist dist\dotnet mkdir dist\dotnet
+          if not exist dist\java mkdir dist\java
+          if exist dist\wrappers\dotnet\TolkDotNet.dll copy /Y dist\wrappers\dotnet\TolkDotNet.dll dist\dotnet\ >nul
+          if exist dist\wrappers\java\Tolk.jar copy /Y dist\wrappers\java\Tolk.jar dist\java\ >nul
           :: GameMaker shim — compiled once per architecture, shipped prebuilt
           for %%A in (x86 x64 arm64 arm64ec) do (
             if exist "artifacts\tolk-%%A-Release\TolkGml.dll" (
