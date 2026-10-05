@@ -248,20 +248,23 @@ bool ProcessExists(const wchar_t *name) {
 }
 
 // A running UIA consumer that actually turns notification events into speech
-// has to exist for this backend to be useful. Nothing in the UIA API tells us
-// whether a listener consumes events, and both the Windows screen-reader flag
-// and UiaClientsAreListening can stay set after the reader that raised them has
-// exited, so the flag alone would latch the driver on forever. Narrator is the
-// one mainstream reader that uses UIA notifications and has no dedicated Tolk
-// driver; NVDA and the others have their own, so they win detection first
-// anyway. TOLK_UIA_ALWAYS=1 bypasses the process check for testing with another
-// notification consumer.
+// has to exist for this backend to be useful. UiaClientsAreListening only says
+// that some client is listening, which on a normal desktop is almost always
+// true and can stay true after the reader that raised it has exited, so it
+// would latch the driver on forever on its own. The Windows screen-reader flag
+// cannot be used either: NVDA and other readers that consume notifications do
+// not set it, so requiring it would keep the driver off in the very setups it
+// exists for. Instead, look for a reader that is known to turn UIA
+// notifications into speech. Narrator and NVDA both do (NVDA announces the
+// important processing kinds); the other supported readers have dedicated Tolk
+// drivers that win detection first anyway. TOLK_UIA_ALWAYS=1 bypasses the
+// process check for testing with another notification consumer.
 bool UiaConsumerRunning() {
   static DWORD lastCheck = 0;
   static bool cached = false;
   const DWORD now = GetTickCount();
   if (lastCheck != 0 && (now - lastCheck) < 1000) return cached;
-  cached = ProcessExists(L"Narrator.exe");
+  cached = ProcessExists(L"Narrator.exe") || ProcessExists(L"nvda.exe");
   lastCheck = now;
   return cached;
 }
@@ -471,12 +474,12 @@ bool ScreenReaderDriverUIA::IsActive() {
     return cachedIsActive;
   }
   cachedIsActive = false;
-  if (!disabled) {
-    BOOL screenReader = FALSE;
-    if (SystemParametersInfoW(SPI_GETSCREENREADER, 0, &screenReader, 0) && screenReader != FALSE &&
-        Api().ClientsAreListening() && (UiaAlwaysEnabled() || UiaConsumerRunning())) {
-      cachedIsActive = EnsureSession();
-    }
+  // Do not require the Windows screen-reader flag here: NVDA and the other
+  // readers that consume notification events do not set it, so it would keep
+  // this driver off exactly when it is needed.
+  if (!disabled && Api().ClientsAreListening() &&
+      (UiaAlwaysEnabled() || UiaConsumerRunning())) {
+    cachedIsActive = EnsureSession();
   }
   lastIsActiveTime = currentTime;
   return cachedIsActive;
