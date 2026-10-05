@@ -6,6 +6,7 @@ them:
 
 | Folder            | Language / engine | Form                                   |
 |-------------------|-------------------|----------------------------------------|
+| `c++`             | C / C++ (native)  | `Tolk.h` + `Tolk.lib` per architecture |
 | `dotnet`          | C# / VB.NET       | `TolkDotNet.dll` (netstandard2.0, net40) |
 | `java`            | Java              | `Tolk.jar` (JNI)                       |
 | `python`          | Python            | `Tolk.py` (+ bytecode)                 |
@@ -20,10 +21,12 @@ them:
 | `game-engines/godot`   | Godot 4      | GDExtension singleton                  |
 | `game-engines/gamemaker` | GameMaker  | GML scripts + conversion shim          |
 
-The `dotnet`, `java` and `python` folders are built by `build.bat`; the others
-are source-only and are shipped as-is, except for the GameMaker shim which is
-compiled per architecture (see below). See `game-engines/README.md` for the
-engine bindings and the repository README for the native API.
+The `dotnet`, `java`, `python` and `c++` folders are filled in by `build.bat`:
+the first three with their compiled wrapper, and `c++` with the public header
+plus one import library per architecture. The others are source-only and are
+shipped as-is, except for the GameMaker shim which is compiled per architecture
+(see below). See `game-engines/README.md` for the engine bindings and the
+repository README for the native API.
 
 ## In a release package
 
@@ -32,6 +35,9 @@ documentation as HTML, and adds things that are not in the repository:
 
 * every Markdown document here is rendered to `.html` and the Markdown source
   is dropped, so the package never carries the same text twice;
+* `c++/include/Tolk.h` plus `c++/lib/<arch>/Tolk.lib` form the native import
+  kit, so C and C++ clients can link against `Tolk.dll` without a source
+  checkout;
 * `game-engines/gamemaker/bin/<arch>/TolkGml.dll` holds the prebuilt
   conversion shim for each architecture, so the GameMaker binding can be used
   without a compiler. The shim source and `game-engines/gamemaker/build.bat`

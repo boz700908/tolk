@@ -279,6 +279,7 @@ for %%C in (%CONFIG_LIST%) do (
   if "!BUILD_ARM64EC!"=="1" call :COPY_ARCH arm64ec %%C
 )
 call :COPY_SHARED
+call :COPY_CPP
 call :COPY_LICENSES
 call :WRITE_DEBUG_FEATURES
 if "!ASM_FAIL!"=="1" exit /b 1
@@ -333,7 +334,7 @@ if defined WSRC (
 )
 
 :: Source-only wrapper layers: shipped as-is, no build step required.
-for %%W in (lua java-iodine oxygene swift-silver) do (
+for %%W in (lua java-iodine oxygene swift-silver c++) do (
   if exist "contrib\%%W" (
     if not exist "dist\wrappers\%%W" mkdir "dist\wrappers\%%W"
     xcopy /E /I /Y /Q "contrib\%%W\*" "dist\wrappers\%%W\" >nul
@@ -421,6 +422,26 @@ if defined HTML (
   if not exist "dist\docs" mkdir "dist\docs"
   copy /Y "!HTML!" "dist\docs\README.html" >nul
   copy /Y "!HTML!" "dist\README.html" >nul
+)
+exit /b 0
+
+:: Native C/C++ import kit: the public header plus the import library of every
+:: built architecture, so a release package can be linked without a source tree.
+:COPY_CPP
+if exist "src\Tolk.h" (
+  if not exist "dist\wrappers\c++\include" mkdir "dist\wrappers\c++\include"
+  copy /Y "src\Tolk.h" "dist\wrappers\c++\include\" >nul
+  if exist "src\TolkVersion.h" copy /Y "src\TolkVersion.h" "dist\wrappers\c++\include\" >nul
+)
+for %%A in (x86 x64 arm64 arm64ec) do (
+  set "CPPLIB="
+  for %%C in (Release Debug) do (
+    if not defined CPPLIB if exist "dist\%%A\%%C\Tolk.lib" set "CPPLIB=dist\%%A\%%C\Tolk.lib"
+  )
+  if defined CPPLIB (
+    if not exist "dist\wrappers\c++\lib\%%A" mkdir "dist\wrappers\c++\lib\%%A"
+    copy /Y "!CPPLIB!" "dist\wrappers\c++\lib\%%A\Tolk.lib" >nul
+  )
 )
 exit /b 0
 

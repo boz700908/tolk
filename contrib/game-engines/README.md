@@ -18,7 +18,8 @@ directly:
 * **Ren'Py** and any Python host: `src/python/Tolk.py` (built into
   `dist/wrappers/python`).
 * Plain C/C++ engines (Cocos2d-x, OGRE, custom engines): include `Tolk.h` and
-  link `Tolk.lib` from `dist/<arch>/<config>`.
+  link the matching `Tolk.lib` from `dist/wrappers/c++` (see
+  `contrib/c++/README.md`).
 
 ## The one rule that matters
 

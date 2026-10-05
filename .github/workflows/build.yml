@@ -117,6 +117,16 @@ jobs:
           :: Language wrappers — shared common directory (identical for every architecture)
           mkdir dist\wrappers
           xcopy /E /I /Y artifacts\tolk-wrappers\* dist\wrappers\
+          :: Native C/C++ import kit — header plus the import library per architecture
+          if not exist dist\wrappers\c++\include mkdir dist\wrappers\c++\include
+          copy /Y src\Tolk.h dist\wrappers\c++\include\ >nul
+          if exist src\TolkVersion.h copy /Y src\TolkVersion.h dist\wrappers\c++\include\ >nul
+          for %%A in (x86 x64 arm64 arm64ec) do (
+            if exist "artifacts\tolk-%%A-Release\Tolk.lib" (
+              if not exist "dist\wrappers\c++\lib\%%A" mkdir "dist\wrappers\c++\lib\%%A"
+              copy /Y "artifacts\tolk-%%A-Release\Tolk.lib" "dist\wrappers\c++\lib\%%A\Tolk.lib" >nul
+            )
+          )
           :: GameMaker shim — compiled once per architecture, shipped prebuilt
           for %%A in (x86 x64 arm64 arm64ec) do (
             if exist "artifacts\tolk-%%A-Release\TolkGml.dll" (

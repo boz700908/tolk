@@ -34,6 +34,10 @@ Finally, a few words on multi-threaded applications. Tolk is not thread-safe. Al
 
 Tolk has functions for (un)initialization, querying and using the active screen reader, and for working with the fallback speech engines, Windows OneCore and Microsoft SAPI. To use Tolk, import the appropriate version of `Tolk.dll` into your application. In C/C++ this is usually done by including `Tolk.h` and linking with the appropriate import library `Tolk.lib`. You could also use the Windows API functions `LoadLibrary` and `FreeLibrary`. Other languages are also supported, see `Wrappers`. If you're working in an unsupported language, use its specific facilities to call into the DLL.
 
+A release package ships the native C/C++ import kit in `wrappers/c++`: the
+public header `Tolk.h`, `TolkVersion.h`, and the import library `Tolk.lib` for
+every architecture (`x86`, `x64`, `arm64`, `arm64ec`).
+
 ### Required files
 
 The `lib` directory contains the required screen reader API DLLs. Tolk expects these DLLs to be found either in the current working directory or somewhere in the `PATH`. If a DLL for a screen reader is not found, that screen reader will be unavailable. Note that some screen readers use COM and therefore don't need API DLLs.
@@ -102,6 +106,10 @@ Wrappers around `Tolk.dll` have been added for some languages to make things eas
 * **PureBasic**: Provides native bindings for PureBasic projects.
 
 The wrappers cover all functions and use the language's native types where possible.
+
+`Tolk.dll` itself exposes a plain C interface, so C and C++ need no wrapper: the
+release package ships the public header and the per-architecture import library
+under `wrappers/c++`; see `contrib/c++/README.md`.
 
 Game engines are covered by bindings that are not compiled with Tolk itself; see `contrib/game-engines/README.md`:
 
@@ -210,6 +218,7 @@ dist/
 │   └── Release/    # ARM64EC Release build
 ├── wrappers/       # Shared language wrappers (all architectures)
 │   ├── README.html # Wrapper overview
+│   ├── c++/        # Native C/C++ import kit (Tolk.h + per-architecture Tolk.lib)
 │   ├── dotnet/     # .NET wrapper (TolkDotNet.dll)
 │   ├── java/       # Java wrapper (Tolk.jar)
 │   ├── python/     # Python wrapper (Tolk.py)
