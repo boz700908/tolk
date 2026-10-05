@@ -185,12 +185,6 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Load() {
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"ZDSR", true, true, TolkBridgeBackendZDSR));
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"BoyPCReader", true, false, TolkBridgeBackendBOY));
 #endif
-#if TOLK_CAN_LOAD_X86
-    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverZDCloud>());
-#else
-    TOLK_LOG_INFO("ZDCloud: using the 32-bit bridge helper");
-    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"ZDCloud", true, false, TolkBridgeBackendZDCloud));
-#endif
     // Japanese and Korean screen readers (regional market). They ship 64-bit
     // code but no ARM64 build, so an ARM64 build drives them through the
     // 64-bit helper like the other local readers.
@@ -202,15 +196,27 @@ TOLK_DLL_DECLSPEC void TOLK_CALL Tolk_Load() {
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"PC-Talker", true, true, TolkBridgeBackendPCTalker));
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"Sense Reader", true, false, TolkBridgeBackendSenseReader));
 #endif
-    // Generic Windows backend: UIA notifications. It activates while a screen
-    // reader has set the Windows screen-reader flag, a UIA client is listening,
-    // a UIA consumer is actually running (Narrator) and the application owns a
-    // top-level window to host the provider on. It ranks below the named screen
-    // readers and above the fallback speech engines, and it is never latched
-    // onto (see DetectCurrentScreenReader) because the flag and the listening
-    // bit can outlive the reader that raised them.
+    // Generic Windows backend: UIA notifications. It activates while a UIA
+    // client is listening, a UIA consumer is actually running (Narrator) and
+    // the application owns a top-level window to host the provider on. It
+    // ranks below the named screen readers and above ZDCloud and the fallback
+    // speech engines, and it is never latched onto (see
+    // DetectCurrentScreenReader) because the listening bit can outlive the
+    // reader that raised it.
     g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverUIA>());
     g_uiaDriver = g_screenReaderDrivers.back().get();
+    // ZDCloud (之多云) is a voice backend whose 32-bit module is always
+    // available next to Tolk.dll, so it must never outrank a real screen
+    // reader. It stays enabled by default, but it is placed after every screen
+    // reader driver - including the UIA driver that serves Narrator - and
+    // before the fallback speech engines, so it is only used when no screen
+    // reader is active.
+#if TOLK_CAN_LOAD_X86
+    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverZDCloud>());
+#else
+    TOLK_LOG_INFO("ZDCloud: using the 32-bit bridge helper");
+    g_screenReaderDrivers.push_back(std::make_unique<ScreenReaderDriverBridged>(L"ZDCloud", true, false, TolkBridgeBackendZDCloud));
+#endif
     // Fallback speech engines. Like SAPI, OneCore does not depend on the
     // Windows screen-reader flag; both are enabled by Tolk_TrySAPI and moved
     // by Tolk_PreferSAPI, and OneCore is always tried before SAPI.

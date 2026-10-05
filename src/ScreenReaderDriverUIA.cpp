@@ -172,11 +172,14 @@ public:
       if (activity) SysFreeString(activity);
       return;
     }
-    // The important variants are the ones screen readers act on: NVDA reports
-    // ImportantAll/ImportantMostRecent notifications and ignores the plain
-    // variants, while Narrator reports all of them.
+    // Every screen reader acts on the notification regardless of the
+    // processing hint; NVDA only uses the hint to decide whether to flush.
+    // Interrupting uses ImportantMostRecent so the new message replaces
+    // queued speech. The queued path uses plain All rather than ImportantAll
+    // because Narrator treats the important kind as append-only, which lets
+    // an ever-growing backlog build up for apps that never interrupt.
     Api().RaiseNotificationEvent(this, NotificationKind_ActionCompleted,
-      interrupt ? NotificationProcessing_ImportantMostRecent : NotificationProcessing_ImportantAll,
+      interrupt ? NotificationProcessing_ImportantMostRecent : NotificationProcessing_All,
       content, activity);
     SysFreeString(content);
     SysFreeString(activity);
